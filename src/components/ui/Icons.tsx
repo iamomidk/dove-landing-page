@@ -4,7 +4,7 @@ import {type IconProps} from "../../types";
 // --- Icon Components ---
 export const HeaderLogo: FC<IconProps> = () => (
     <img
-        src="/src/assets/dove_header_logo.png"
+        src="/dove_header_logo.png"
         alt="Dove Logo"
         className="h-10 w-auto"
     />

@@ -5,7 +5,7 @@ export const HeroSection: FC = () => (
         className="scroll-section text-center bg-white justify-start pt-20">
 
         <div className="w-full">
-            <img src="/src/assets/dove-shampoo-conditoner.png" alt="Dove Products" className="mx-auto w-full max-w-md"/>
+            <img src="/dove-shampoo-conditoner.png" alt="Dove Products" className="mx-auto w-full max-w-md"/>
         </div>
         <div className="relative mt-2 flex-grow w-full flex items-center justify-center">
             <div className="absolute inset-0 flex flex-col items-center justify-center space-y-8 z-10">
