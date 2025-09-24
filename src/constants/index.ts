@@ -3,27 +3,32 @@ import {type Product} from "../types";  // Using path alias '@/' for 'src/'
 export const products: Product[] = [
     {
         imgSrc: "/narmkonandeh_1.png",
-        title: "شامپو و نرم کننده",
-        description: "لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ"
+        title: "COLOR VIBRANCY",
+        description: "شامپو و نرم‌کننده‌ای برای موهای رنگ شده\n" +
+            "تا ۹۰% جلوگیری از آسیب مو ناشی از رنگ شدگی حاوی لایزین"
     },
     {
         imgSrc: "/narmkonandeh_2.png",
-        title: "شامپو مراقبت روزانه",
-        description: "لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ"
+        title: "DAILY MOISTURE",
+        description: "شامپو و نرم‌کننده‌ای برای تمام فصول\n" +
+            "رطوبت رسانی به پوست سر، احیا رطوبت ساقه‌ی مو حاوی گلیسیرین"
     },
     {
         imgSrc: "/narmkonandeh_3.png",
-        title: "روغن مو آرگان",
-        description: "لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ"
+        title: "INTENSIVE REPAIR",
+        description: "شامپو و نرم‌کننده مناسب موهای آسیب دیده و شکننده\n" +
+            "تا ۹۰%  جلوگیری از آسیب مو و ترمیم موهای آسیب دیده حاوی گلوکونولاکتون"
     },
     {
         imgSrc: "/narmkonandeh_4.png",
-        title: "ماسک مو ترمیم کننده",
-        description: "لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ"
+        title: "HAIR FAIL RESCUE",
+        description: "شامپوی موهای بلند و سست\n" +
+            "تا 4 برابر ساقه‌ی موهایی قوی تر حاوی سرامید"
     },
     {
         imgSrc: "/narmkonandeh_5.png",
-        title: "ماسک مو ترمیم کننده",
-        description: "لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ"
+        title: "PURIFYING",
+        description: "شامپوی موهای چرب و سنگین\n" +
+            "احیای تمیزی پوست و مو سر تشکیل شده از ۹۰% مواد طبیعی"
     },
 ];

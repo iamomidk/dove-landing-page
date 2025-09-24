@@ -1,4 +1,4 @@
-import { type FC } from 'react';
+import {type FC} from 'react';
 
 const GlobalStyles: FC = () => (
     <style>{`
@@ -38,9 +38,48 @@ const GlobalStyles: FC = () => (
             align-items: center; 
         }
         
-        /* CHANGED: Removed max-height and overflow to disable inner scroll */
-        .product-list-scroll { 
-            width: 100%; 
+        /* The main scroll container */
+        .product-list-scroll {
+            display: flex;
+            /* This creates space between cards */
+            gap: 1rem; /* 16px */
+        
+            /* This is the key for the "peeking" effect */
+            /* It adds space on the sides of the whole list */
+            padding: 0 1rem; /* 16px horizontal padding */
+        
+            /* Scroll behavior */
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+        
+            /* Hide the scrollbar */
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+        }
+        
+        /* Hides scrollbar for Chrome, Safari and Opera */
+        .product-list-scroll::-webkit-scrollbar {
+            display: none;
+        }
+        
+        
+        /* The individual product card */
+        .list-card-item {
+            /* --- Main change is here --- */
+            /* Card takes up 80% of the screen width */
+            width: 80%;
+        
+            /* Prevents the card from shrinking */
+            flex-shrink: 0;
+        
+            /* This makes the scroll stop perfectly at the start of each card */
+            scroll-snap-align: start;
+        
+            /* Other styles you already had */
+            display: flex;
+            flex-direction: column;
+            text-align: right;
+            overflow: hidden;
         }
         
         /* Responsive Video Container Styles */
@@ -68,32 +107,35 @@ const GlobalStyles: FC = () => (
             display: flex;
             flex-direction: column;
         }
+        .card-item--image {
+            /* Give the image container a fixed height */
+            width: 100%;
+            overflow: hidden; /* Ensures the image corners are rounded if you add border-radius */
+        }
+        
+        /* The image itself */
         .card-item--image .cmp-image__image {
             width: 100%;
-            height: 10%; /* 192px */
-            object-fit: contain;
-            padding-top: 1rem;
-            padding-left: 4rem;
-            padding-right: 4rem;
+            height: 100%;
+            /* This is the key property */
+            object-fit: cover; 
         }
         .card-item--details {
             padding-top: 1rem;
-            padding-left: 4rem;
-            padding-right: 4rem;
             display: flex;
             flex-direction: column;
             flex-grow: 1;
         }
         .card-item--details .title {
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.1rem;
         }
         .card-item--details .card-title {
             font-size: 1.125rem; /* 18px */
             font-weight: 700;
-            color: #4a5568; /* Tailwind gray-600 */
+            color: #797776; /* Tailwind gray-600 */
         }
         .card-item--details .card-sub-title {
-            font-size: 1.125rem; /* 18px */
+            font-size: 12px; /* 18px */
             font-weight: 700;
             color: #001F5F; /* Tailwind gray-600 */
         }
@@ -132,6 +174,24 @@ const GlobalStyles: FC = () => (
         .rtl-form-input { text-align: right; }
         .rtl-form-input::placeholder { text-align: right; }
         .otp-input { text-align: center; font-size: 1.5rem; letter-spacing: 0.5em; }
+        .concave-top {
+            position: relative;
+            background-color: 003366;
+            overflow: hidden; /* This is key to clip the pseudo-element */
+        }
+        .concave-top::before {
+            content: '';
+            position: absolute;
+            top: -40px; /* Controls the depth of the curve */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150%; /* Make it wider than the container */
+            height: 80px; /* Controls the height of the curve */
+            border-radius: 50%;
+            /* This creates a "hole" by casting a huge shadow 
+               with the same color as the body's background. */
+            box-shadow: 0 0 0 1000000px #003366; /* This is the hex for bg-gray-100 */
+        }
     `}</style>
 );
 

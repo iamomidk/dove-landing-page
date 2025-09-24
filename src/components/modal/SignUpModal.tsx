@@ -3,12 +3,9 @@ import {type SignUpModalProps} from "../../types";
 
 const ModalHeader: FC<{ onBack: () => void; title: string; subtitle: string }> = ({onBack, title, subtitle}) => (
     <>
-        <div
-            className="flex justify-between items-center mb-4">
+        <div className="flex justify-end items-center mb-4">
             <h2 className="text-xl font-bold text-brand-blue text-center flex-grow">{title}</h2>
-            <button onClick={onBack} className="text-sm text-gray-500 hover:text-gray-800 flex items-center">
-                بازگشت
-            </button>
+            <button onClick={onBack} className="text-sm text-gray-500 hover:text-gray-800 flex items-center">بازگشت</button>
         </div>
         <p className="text-gray-500 text-sm text-center mb-6">{subtitle}</p>
     </>
@@ -49,13 +46,13 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50"
              onClick={onClose}>
-            <div className="bg-white rounded-lg shadow-2xl w-full max-w-sm mx-auto"
+            <div className="bg-white shadow-2xl w-full max-w-sm mx-auto"
                  onClick={(e) => e.stopPropagation()}>
                 {modalStep === 1 ? (
                     <div className="p-6">
                         <ModalHeader
                             onBack={onClose}
-                            title="خوش آمدید!"
+                            title="تثبیت"
                             subtitle="لطفا شماره موبایل و نام و نام خانوادگی خود را وارد کنید."
                         />
                         <form onSubmit={handleInfoSubmit}>

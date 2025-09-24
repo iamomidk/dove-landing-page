@@ -24,6 +24,8 @@ export interface SignUpModalProps {
 export interface RetailerLinkProps {
     imgSrc: string;
     alt: string;
+    href: string;
+    borderColor: string;
 }
 
 export interface IconProps {

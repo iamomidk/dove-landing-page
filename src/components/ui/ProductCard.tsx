@@ -23,9 +23,7 @@ export const ProductCard: FC<ProductCardProps> = ({product}) => (
             {/* Rating section is removed per request */}
             <div className="card-tags">
                 <a href="/">
-                    <h3 className="card-sub-title"
-                        title="لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ">لورم ایپسوم متن ساختگی با
-                        تولید سادگی نامفهوم از صنعت چاپ</h3>
+                    <h3 className="card-sub-title" title={product.description}>{product.description}</h3>
                 </a>
             </div>
         </div>
