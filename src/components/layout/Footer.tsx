@@ -3,13 +3,17 @@ import {RetailerLink} from "../ui/RetailerLink.tsx";
 import {ArrowLeft, InstagramIcon, PhoneIcon} from "../ui/Icons.tsx";
 
 export const Footer: FC = () => (
-    <section className="flex flex-col bg-white w-full rounded-lg shadow-md overflow-hidden">
+    <section className="flex flex-col bg-gray-100 w-full rounded-lg shadow-md overflow-hidden">
         {/* This div contains the retailer links */}
         <div className="w-full flex-grow flex flex-col justify-center items-center p-8">
             <div className="w-full max-w-xs mx-auto space-y-3">
+                <h2 className="text-xl text-brand-blue text-center font-bold">با خرید از فروشگاه‌های اکالا و اسنپ تخفیف
+                    دریافت کنید.</h2>
                 <RetailerLink imgSrc="/okala_logo.png" alt="Okala Logo" href="" borderColor="#E22533"/>
                 <RetailerLink imgSrc="/snapp_express_logo.png" alt="Snapp! Express Logo" href="" borderColor="#FF9600"/>
                 <RetailerLink imgSrc="/digikala_logo.png" alt="Digikala Logo" href="" borderColor="#ED1944"/>
+                <h2 className="text-xl text-brand-blue text-center font-bold">به قید قرعه به مخاطبانی که ثبت نام کردن و
+                    سوالات رو پاسخ دادن هدیه اهدا میشه.</h2>
             </div>
         </div>
 

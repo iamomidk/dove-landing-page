@@ -2,6 +2,9 @@ export interface Product {
     imgSrc: string;
     title: string;
     description: string;
+    hoverTitle: string;
+    hoverDesc: string;
+    hoverTextColor: string;
 }
 
 export interface ProductSectionProps {
