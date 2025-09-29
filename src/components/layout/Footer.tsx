@@ -27,7 +27,7 @@ export const Footer: FC = () => (
         {/* Retailers */}
         <div className="w-full flex-grow flex flex-col justify-center items-center p-8">
             <div className="w-full max-w-xs mx-auto space-y-3">
-                <h2 id="retailers-title" className="text-xl text-brand-blue text-center font-bold">
+                <h2 id="retailers-title" className="text-xl text-brand-blue text-center font-bold mb-16">
                     با خرید از فروشگاه‌های اکالا و اسنپ تخفیف دریافت کنید.
                 </h2>
 

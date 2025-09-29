@@ -1,5 +1,5 @@
-import { type FC, useState } from "react";
-import type { RetailerLinkProps } from "../../types";
+import {type FC, useState} from "react";
+import type {RetailerLinkProps} from "../../types";
 
 /**
  * Improved RetailerLink
@@ -8,7 +8,7 @@ import type { RetailerLinkProps } from "../../types";
  * - Hover & "active" visuals preserved; focus acts like hover for keyboard users.
  * - Button variant exposes aria-pressed to screen readers.
  */
-export const RetailerLink: FC<RetailerLinkProps> = ({ imgSrc, alt, href, borderColor }) => {
+export const RetailerLink: FC<RetailerLinkProps> = ({imgSrc, alt, href, borderColor}) => {
     const [isHovering, setIsHovering] = useState(false);
     const [isPressed, setIsPressed] = useState(false);
 
@@ -16,12 +16,12 @@ export const RetailerLink: FC<RetailerLinkProps> = ({ imgSrc, alt, href, borderC
     const isActive = isHovering || isPressed;
 
     const baseClasses =
-        "block w-full py-3 px-4 text-center transition-all duration-300 transform focus:outline-none focus:ring-2 focus:ring-brand-blue/40 rounded";
+        "block w-full py-3 px-4 text-center transition-all duration-300 transform focus:outline-none";
 
-    const inactiveClasses = "bg-white border-b-4 shadow-sm";
-    const activeClasses = "bg-white border-b-4 border-2 shadow-lg scale-105";
+    const inactiveClasses = "border-b-4";
+    const activeClasses = "border-b-4 border scale-105";
 
-    const commonStyle = isActive ? { borderColor } : undefined;
+    const commonStyle = isActive ? {borderColor} : undefined;
     const commonHandlers = {
         onMouseEnter: () => setIsHovering(true),
         onMouseLeave: () => setIsHovering(false),
