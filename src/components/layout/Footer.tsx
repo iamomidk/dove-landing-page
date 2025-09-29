@@ -22,7 +22,7 @@ const SOCIAL_LINKS: SocialItem[] = [
 ];
 
 export const Footer: FC = () => (
-    <section className="flex flex-col bg-gray-100 w-full rounded-lg shadow-md overflow-hidden" role="region"
+    <section className="flex flex-col bg-gray-100 w-full  shadow-md overflow-hidden" role="region"
              aria-labelledby="retailers-title">
         {/* Retailers */}
         <div className="w-full flex-grow flex flex-col justify-center items-center p-8">
