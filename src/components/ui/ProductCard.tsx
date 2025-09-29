@@ -76,12 +76,12 @@ export const ProductCard: FC<ProductCardProps> = ({product}) => {
             {/* Card details */}
             <div className="card-item--details">
                 <div className="title">
-                    <h3 className="card-title" title={product.title}>
+                    <h3 className="card-title font-bold" title={product.title}>
                         {product.title}
                     </h3>
                 </div>
                 <div className="card-tags">
-                    <h3 className="card-sub-title" title={product.description}>
+                    <h3 className="card-sub-title font-semibold" title={product.description}>
                         {product.description}
                     </h3>
                 </div>

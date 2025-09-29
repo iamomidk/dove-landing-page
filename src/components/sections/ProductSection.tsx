@@ -3,7 +3,7 @@ import type {ProductSectionProps} from "../../types";
 import {ProductCard} from "../ui/ProductCard.tsx";
 
 export const ProductSection: FC<ProductSectionProps> = ({products}) => (
-    <section className="bg-gray-100 py-16 px-4">
+    <section className="bg-gray-100 py-16 px-4 mt-4">
         <div className="w-full max-w-6xl mx-auto product-list-scroll">
             {
                 products.map(

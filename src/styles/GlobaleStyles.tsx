@@ -162,13 +162,11 @@ const GlobalStyles: FC = () => (
     .card-item--details { padding-top: 1rem; display: flex; flex-direction: column; flex-grow: 1; }
     .card-item--details .title { margin-bottom: 0.1rem; }
     .card-item--details .card-title {
-      font-size: 1.125rem;
-      font-weight: 700;
+      font-size: 18px;
       color: #797776;
     }
     .card-item--details .card-sub-title {
-      font-size: 12px;
-      font-weight: 700;
+      font-size: 14px;
       color: #001F5F;
       white-space: pre-line;
     }
@@ -222,6 +220,28 @@ const GlobalStyles: FC = () => (
     button:focus-visible {
       outline: 2px solid #003366;
       outline-offset: 2px;
+    }
+    
+    @keyframes pulse-ring {
+      0%   { transform: translate(-50%, -50%) scale(1);   opacity: 0.6; }
+      70%  { transform: translate(-50%, -50%) scale(1.6); opacity: 0;   }
+      100% { transform: translate(-50%, -50%) scale(1);   opacity: 0;   }
+    }
+
+    .play-button {
+      position: relative;
+    }
+    .play-button::before {
+      content: "";
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 120%; height: 120%;
+      transform: translate(-50%, -50%) scale(1);
+      border-radius: 50%;
+      background-color: #003366;
+      opacity: 0.6;
+      animation: pulse-ring 1.8s cubic-bezier(0.66, 0, 0, 1) infinite;
+      z-index: -1;
     }
   `}</style>
 );
