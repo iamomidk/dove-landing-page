@@ -1,20 +1,185 @@
-import type {FC} from "react";
+import { type FC, useEffect, useRef, useState } from "react";
 
-export const VideoSection: FC = () => (
-    <section className="scroll-section bg-gray-50 text-center p-4">
-        <div className="w-full max-w-3xl mx-auto">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-brand-blue mb-6">
-                زیبایی واقعی را کشف کنید
-            </h2>
-            <div className="video-responsive-container rounded-lg shadow-xl bg-black">
-                <iframe
-                    className="video-responsive-iframe"
-                    src="https://www.youtube.com/embed/jcO2I1_zG-E?autoplay=1&mute=1&loop=1&playlist=jcO2I1_zG-E&controls=0&showinfo=0&modestbranding=1"
-                    title="Dove Video"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                ></iframe>
+export const VideoSection: FC = () => {
+    const [open, setOpen] = useState(false);
+    const prefersReducedMotion = typeof window !== "undefined"
+        ? window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+        : false;
+
+    const openDialog = () => setOpen(true);
+    const close = () => setOpen(false);
+
+    // Refs
+    const dialogRef = useRef<HTMLDivElement | null>(null);
+    const openerBtnRef = useRef<HTMLButtonElement | null>(null);
+
+    // Lock background scroll when open
+    useEffect(() => {
+        const original = document.body.style.overflow;
+        if (open) document.body.style.overflow = "hidden";
+        else document.body.style.overflow = original;
+        return () => {
+            document.body.style.overflow = original;
+        };
+    }, [open]);
+
+    // Close on ESC
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") close();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [open]);
+
+    // Focus trap inside dialog + restore focus to opener on close
+    useEffect(() => {
+        if (!open) return;
+
+        const root = dialogRef.current;
+        if (!root) return;
+
+        const getFocusable = () =>
+            Array.from(
+                root.querySelectorAll<HTMLElement>(
+                    'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+                )
+            ).filter((el) => !el.hasAttribute("disabled") && !el.getAttribute("aria-hidden"));
+
+        const focusables = getFocusable();
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+
+        first?.focus();
+
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== "Tab") return;
+            const current = document.activeElement as HTMLElement | null;
+            // If nothing focused, focus first
+            if (!current) {
+                e.preventDefault();
+                first?.focus();
+                return;
+            }
+            if (!root.contains(current)) return;
+
+            // Cycle focus
+            if (!e.shiftKey && current === last) {
+                e.preventDefault();
+                first?.focus();
+            } else if (e.shiftKey && current === first) {
+                e.preventDefault();
+                last?.focus();
+            }
+        };
+
+        root.addEventListener("keydown", onKeyDown);
+        return () => {
+            root.removeEventListener("keydown", onKeyDown);
+            // Restore focus to the opener button after close
+            openerBtnRef.current?.focus();
+        };
+    }, [open]);
+
+    // Build video src only when open; respect reduced motion
+    const videoSrc =
+        open
+            ? `https://www.youtube.com/embed/jcO2I1_zG-E?${new URLSearchParams({
+                autoplay: prefersReducedMotion ? "0" : "1",
+                mute: "1",
+                loop: "1",
+                playlist: "jcO2I1_zG-E",
+                controls: "1",
+                modestbranding: "1",
+                rel: "0",
+            }).toString()}`
+            : undefined;
+
+    return (
+        <section id="video" className="scroll-section">
+            {/* Cover image + Play button */}
+            <div className="relative w-full">
+                <img
+                    src="/cover.jpg"
+                    alt="تصویر محصولات داو"
+                    className="w-full max-h-[90vh] object-contain sm:object-cover"
+                    loading="lazy"
+                />
+
+                <button
+                    ref={openerBtnRef}
+                    type="button"
+                    onClick={openDialog}
+                    className="absolute inset-0 m-auto h-20 w-20 rounded-full bg-[#003366] text-white shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#003366] flex items-center justify-center"
+                    aria-label="پخش ویدیو"
+                    aria-haspopup="dialog"
+                    aria-controls="dove-video-dialog"
+                    style={{ aspectRatio: "1 / 1" }}
+                >
+                    {/* Play icon */}
+                    <svg viewBox="0 0 24 24" className="h-10 w-10" aria-hidden="true">
+                        <circle cx="12" cy="12" r="12" fill="currentColor" opacity="0.15" />
+                        <path d="M9 7l8 5-8 5V7z" fill="currentColor" />
+                    </svg>
+                </button>
             </div>
-        </div>
-    </section>
-);
+
+            {/* Dialog */}
+            {open && (
+                <div
+                    id="dove-video-dialog"
+                    ref={dialogRef}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="dove-video-title"
+                    aria-describedby="dove-video-desc"
+                    className="fixed inset-0 z-50 flex items-center justify-center"
+                    onMouseDown={(e) => {
+                        // Close on backdrop click (but not when clicking inside content)
+                        if (e.target === e.currentTarget) close();
+                    }}
+                >
+                    {/* Backdrop */}
+                    <div className="absolute inset-0 bg-black/80" />
+
+                    {/* Dialog content */}
+                    <div className="relative z-10 w-full h-full">
+                        {/* Visually-hidden title/desc for SRs */}
+                        <h2 id="dove-video-title" className="sr-only">ویدیو داو</h2>
+                        <p id="dove-video-desc" className="sr-only">پخش ویدیو در پنجره تمام‌صفحه.</p>
+
+                        {videoSrc && (
+                            <iframe
+                                className="w-full h-full border-none"
+                                src={videoSrc}
+                                title="ویدیو داو"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                referrerPolicy="strict-origin-when-cross-origin"
+                                allowFullScreen
+                            />
+                        )}
+
+                        {/* Close button */}
+                        <button
+                            type="button"
+                            onClick={close}
+                            className="absolute top-4 right-4 h-12 w-12 rounded-full bg-[#003366] text-white flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white"
+                            aria-label="بستن ویدیو"
+                        >
+                            <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">
+                                <path
+                                    d="M18 6L6 18M6 6l12 12"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            )}
+        </section>
+    );
+};

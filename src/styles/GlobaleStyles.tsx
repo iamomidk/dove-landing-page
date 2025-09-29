@@ -1,4 +1,4 @@
-import { type FC } from "react";
+import {type FC, type JSX} from "react";
 
 const GlobalStyles: FC = () => (
     <style>{`
@@ -63,15 +63,10 @@ const GlobalStyles: FC = () => (
       -ms-overflow-style: none;
       scrollbar-width: none;
     }
-    body::-webkit-scrollbar {
-      display: none;
-    }
+    body::-webkit-scrollbar { display: none; }
 
     /* Sticky wrapper & sections */
-    .sticky-wrapper {
-      height: 300vh;
-      position: relative;
-    }
+    .sticky-wrapper { height: 300vh; position: relative; }
     .scroll-section {
       height: 100vh;
       width: 100%;
@@ -90,16 +85,11 @@ const GlobalStyles: FC = () => (
       padding: 1rem 0;
       overflow-y: auto;         /* vertical scrolling */
     }
-    
-    .product-list-scroll::-webkit-scrollbar {
-      width: 8px;
-    }
-    
+    .product-list-scroll::-webkit-scrollbar { width: 8px; }
     .product-list-scroll::-webkit-scrollbar-thumb {
       background: rgba(0, 0, 0, 0.2);
       border-radius: 4px;
     }
-
 
     /* Product card */
     .list-card-item {
@@ -120,10 +110,8 @@ const GlobalStyles: FC = () => (
     /* Overlay for hover/click */
     .card-overlay {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
       background: transparent;
       display: flex;
       justify-content: center;
@@ -131,16 +119,14 @@ const GlobalStyles: FC = () => (
       text-align: center;
       opacity: 0;
       transition: opacity 0.3s ease;
-      padding: 1rem;
-      padding-left: 2rem;
-      padding-right: 2rem;
+      padding: 1rem 2rem;
       color: rgba(255,255,255,0.25);
-      pointer-events: none;
+      pointer-events: none; /* default: not interactive */
     }
-
     .list-card-item:hover .card-overlay,
     .list-card-item.active .card-overlay {
       opacity: 1;
+      pointer-events: auto; /* ✅ now interactive only when visible */
     }
 
     .overlay-content .overlay-title {
@@ -148,63 +134,37 @@ const GlobalStyles: FC = () => (
       font-weight: 700;
       margin-bottom: 0.5rem;
       text-align: justify;
-      /* color injected inline from product.hoverTextColor */
     }
-
     .overlay-content .overlay-desc {
       font-size: 1rem;
       font-weight: 400;
-      color: #797776; /* fixed grey */
+      color: #797776;
       text-align: justify;
       line-height: 1.5;
     }
 
     /* Image container */
-    .card-item--image {
-      width: 100%;
-      overflow: hidden;
-      position: relative;
-    }
+    .card-item--image { width: 100%; overflow: hidden; position: relative; }
     .card-item--image .cmp-image__image {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
+      width: 100%; height: 100%; object-fit: cover;
       transition: filter 0.3s ease;
     }
-    /* Only blur the image on hover/active */
     .list-card-item:hover .cmp-image__image,
-    .list-card-item.active .cmp-image__image {
-      filter: blur(6px);
-    }
+    .list-card-item.active .cmp-image__image { filter: blur(6px); }
 
     /* Card details */
-    .card-item--details {
-      padding-top: 1rem;
-      display: flex;
-      flex-direction: column;
-      flex-grow: 1;
-    }
-    .card-item--details .title {
-      margin-bottom: 0.1rem;
-    }
+    .card-item--details { padding-top: 1rem; display: flex; flex-direction: column; flex-grow: 1; }
+    .card-item--details .title { margin-bottom: 0.1rem; }
     .card-item--details .card-title {
-      font-size: 1.125rem;
-      font-weight: 700;
-      color: #797776;
+      font-size: 1.125rem; font-weight: 700; color: #797776;
     }
     .card-item--details .card-sub-title {
-      font-size: 12px;
-      font-weight: 700;
-      color: #001F5F;
+      font-size: 12px; font-weight: 700; color: #001F5F;
     }
-    .card-item--details a {
-      text-decoration: none;
-    }
+    .card-item--details a { text-decoration: none; }
 
     /* Tags */
-    .card-tags {
-      margin-top: auto;
-    }
+    .card-tags { margin-top: auto; }
     .card-tags-item {
       display: inline-block;
       background-color: #003366;
@@ -236,37 +196,21 @@ const GlobalStyles: FC = () => (
     .otp-input { text-align: center; font-size: 1.5rem; letter-spacing: 0.5em; }
 
     /* Responsive video */
-    .video-responsive-container {
-      position: relative;
-      overflow: hidden;
-      width: 100%;
-      padding-top: 56.25%;
-    }
-    .video-responsive-iframe {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
+    .video-responsive-container { position: relative; overflow: hidden; width: 100%; padding-top: 56.25%; }
+    .video-responsive-iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
 
     /* Concave top section */
-    .concave-top {
-      position: relative;
-      background-color: #003366;
-      overflow: hidden;
-    }
+    .concave-top { position: relative; background-color: #003366; overflow: hidden; }
     .concave-top::before {
-      content: '';
-      position: absolute;
-      top: -40px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 150%;
-      height: 80px;
-      border-radius: 50%;
-      box-shadow: 0 0 0 1000000px #003366;
+      content: ''; position: absolute; top: -40px; left: 50%;
+      transform: translateX(-50%); width: 150%; height: 80px;
+      border-radius: 50%; box-shadow: 0 0 0 1000000px #003366;
+    }
+
+    /* ✅ Accessibility polish */
+    button:focus-visible {
+      outline: 2px solid #003366;
+      outline-offset: 2px;
     }
   `}</style>
 );

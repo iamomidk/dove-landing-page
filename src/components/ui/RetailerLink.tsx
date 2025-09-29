@@ -1,49 +1,66 @@
-import {type FC, useState} from "react";
-import type {RetailerLinkProps} from "../../types";
+import { type FC, useState } from "react";
+import type { RetailerLinkProps } from "../../types";
 
-export const RetailerLink: FC<RetailerLinkProps> = ({imgSrc, alt, href, borderColor}) => {
-    // State to track if the link has been clicked or is being hovered
-    const [isClicked, setIsClicked] = useState(false);
+/**
+ * Improved RetailerLink
+ * - If `href` is provided (non-empty): renders <a> (navigates).
+ * - If `href` is empty/undefined: renders <button> (no navigation).
+ * - Hover & "active" visuals preserved; focus acts like hover for keyboard users.
+ * - Button variant exposes aria-pressed to screen readers.
+ */
+export const RetailerLink: FC<RetailerLinkProps> = ({ imgSrc, alt, href, borderColor }) => {
     const [isHovering, setIsHovering] = useState(false);
+    const [isPressed, setIsPressed] = useState(false);
 
-    // Handler to toggle the clicked state
-    const handleClick = () => {
-        setIsClicked(!isClicked);
+    const isAnchor = typeof href === "string" && href.trim().length > 0;
+    const isActive = isHovering || isPressed;
+
+    const baseClasses =
+        "block w-full py-3 px-4 text-center transition-all duration-300 transform focus:outline-none focus:ring-2 focus:ring-brand-blue/40 rounded";
+
+    const inactiveClasses = "bg-white border-b-4 shadow-sm";
+    const activeClasses = "bg-white border-b-4 border-2 shadow-lg scale-105";
+
+    const commonStyle = isActive ? { borderColor } : undefined;
+    const commonHandlers = {
+        onMouseEnter: () => setIsHovering(true),
+        onMouseLeave: () => setIsHovering(false),
+        onFocus: () => setIsHovering(true), // keyboard focus behaves like hover
+        onBlur: () => setIsHovering(false),
     };
 
-    // Base classes for the link
-    const baseClasses = "block w-full py-3 px-4 text-center transition-all duration-300 transform focus:outline-none";
+    // Anchor variant — real navigation, no preventDefault
+    if (isAnchor) {
+        const isExternal = /^https?:\/\//i.test(href!);
+        return (
+            <a
+                href={href}
+                {...commonHandlers}
+                className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses}`}
+                style={commonStyle}
+                target={isExternal ? "_blank" : undefined}
+                rel={isExternal ? "noopener noreferrer" : undefined}
+                aria-label={alt}
+                title={alt}
+            >
+                <img src={imgSrc} alt={alt} className="mx-auto h-8 object-contain" loading="lazy" />
+            </a>
+        );
+    }
 
-    // Classes for the unclicked state (hover classes removed)
-    const unclickedClasses = `bg-white border-b-4 shadow-sm`;
-
-    // Classes for the clicked and hovered state
-    const activeClasses = "bg-white border-b-4 border-2  shadow-lg scale-105";
-
-    // Determine if the link should be in its active state
-    const isActive = isClicked || isHovering;
-
+    // Button variant — no href, purely interactive control
     return (
-        <a
-            href={href}
-            // Combine classes based on the active state
-            className={`${baseClasses} ${isActive ? activeClasses : unclickedClasses}`}
-            // Apply border color via style prop only when unclicked and not hovered
-            style={!isActive ? {} : {borderColor: borderColor}}
-            onClick={(e) => {
-                e.preventDefault(); // Prevent navigation for this example
-                handleClick();
-            }}
-            onMouseEnter={() => setIsHovering(true)}
-            onMouseLeave={() => setIsHovering(false)}
-            target="_blank"
-            rel="noopener noreferrer"
+        <button
+            type="button"
+            {...commonHandlers}
+            onClick={() => setIsPressed((v) => !v)}
+            className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses}`}
+            style={commonStyle}
+            aria-label={alt}
+            aria-pressed={isPressed}
+            title={alt}
         >
-            <img
-                src={imgSrc}
-                alt={alt}
-                className="mx-auto h-8 object-contain"
-            />
-        </a>
+            <img src={imgSrc} alt={alt} className="mx-auto h-8 object-contain" loading="lazy" />
+        </button>
     );
 };

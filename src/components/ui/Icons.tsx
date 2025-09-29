@@ -1,7 +1,8 @@
-import {type FC} from 'react';
+import {type FC, JSX} from "react";
 import {type IconProps} from "../../types";
 
 // --- Icon Components ---
+
 export const HeaderLogo: FC<IconProps> = () => (
     <img
         src="/dove_header_logo.png"
@@ -9,45 +10,83 @@ export const HeaderLogo: FC<IconProps> = () => (
         className="h-10 w-auto"
     />
 );
+
 export const HomeIcon: FC<IconProps> = ({className = "w-6 h-6"}) => (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+    >
         <path
             d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
     </svg>
 );
+
 export const InfoIcon: FC<IconProps> = ({className = "w-6 h-6"}) => (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+    >
         <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
     </svg>
 );
+
 export const MenuIcon: FC<IconProps> = ({className = "w-6 h-6"}) => (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+    >
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7"/>
     </svg>
 );
+
 export const CloseIcon: FC<IconProps> = ({className = "w-6 h-6"}) => (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg
+        className={className}
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+    >
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
     </svg>
 );
-export const ArrowLeft: FC<IconProps> = () => (
-    <svg className="h-6 w-6">
+
+export const ArrowLeft: FC<IconProps> = ({className = "h-6 w-6"}) => (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
         <path
-            d="M12 1.38281e-06C18.627 1.67249e-06 24 5.373 24 12C24 18.627 18.627 24 12 24C5.373 24 2.34861e-07 18.627 5.24537e-07 12C8.14212e-07 5.373 5.373 1.09314e-06 12 1.38281e-06ZM7.293 12.707L13.293 18.707C13.488 18.902 13.744 19 14 19C14.256 19 14.512 18.902 14.707 18.707C15.098 18.316 15.098 17.684 14.707 17.293L9.414 12L14.707 6.707C15.098 6.316 15.098 5.684 14.707 5.293C14.316 4.902 13.684 4.902 13.293 5.293L7.293 11.293C6.902 11.684 6.902 12.316 7.293 12.707Z"
-            fill="white"/>
+            d="M12 0C18.627 0 24 5.373 24 12S18.627 24 12 24 0 18.627 0 12 5.373 0 12 0ZM7.293 12.707 13.293 18.707c.195.195.451.293.707.293s.512-.098.707-.293c.391-.391.391-1.023 0-1.414L9.414 12l5.293-5.293c.391-.391.391-1.023 0-1.414-.391-.391-1.023-.391-1.414 0L7.293 11.293c-.391.391-.391 1.023 0 1.414Z"
+            fill="currentColor"
+        />
     </svg>
 );
-export const PhoneIcon: FC<IconProps> = () => (
-    <svg className="h-6 w-6">
-        <path fill-rule="evenodd" clip-rule="evenodd"
-              d="M12 1.38281e-06C18.627 1.67249e-06 24 5.373 24 12C24 18.627 18.627 24 12 24C5.373 24 2.34861e-07 18.627 5.24537e-07 12C8.14212e-07 5.373 5.373 1.09314e-06 12 1.38281e-06ZM5 11.04C5 7.15942 8.14147 4 12 4C15.8585 4 19 7.15942 19 11.04L19 11.68L19 13.6C19 14.3072 18.4305 14.88 17.7273 14.88L16.4545 14.88L16.4545 11.68C16.4545 10.9857 17.0045 10.4241 17.69 10.4037C17.3762 7.51646 14.9565 5.28 12 5.28C9.04347 5.28 6.62384 7.51646 6.31001 10.4037C6.99548 10.4241 7.54545 10.9857 7.54545 11.68L7.54545 14.88L6.27273 14.88C5.56954 14.88 5 14.3072 5 13.6L5 13.1725L5 11.04ZM16.4545 16.8L16.4545 16.16L17.7273 16.16L17.7273 16.8C17.7273 18.2063 16.5801 19.36 15.1818 19.36L13.1012 19.36C12.9896 19.5544 12.8291 19.7159 12.6358 19.8283C12.4425 19.9406 12.2232 19.9998 12 20C11.6625 20 11.3387 19.8651 11.1 19.6251C10.8614 19.385 10.7273 19.0595 10.7273 18.72C10.7273 18.3805 10.8614 18.055 11.1 17.8149C11.3387 17.5749 11.6625 17.44 12 17.44C12.223 17.4404 12.442 17.4997 12.6351 17.6121C12.8281 17.7244 12.9885 17.8857 13.1 18.08L15.1818 18.08C15.8924 18.08 16.4545 17.5147 16.4545 16.8Z"
-              fill="white"/>
+
+export const PhoneIcon: FC<IconProps> = ({className = "h-6 w-6"}) => (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+        <path
+            fillRule="evenodd"
+            clipRule="evenodd"
+            d="M12 0C18.627 0 24 5.373 24 12S18.627 24 12 24 0 18.627 0 12 5.373 0 12 0ZM5 11.04C5 7.159 8.141 4 12 4s7 3.159 7 7.04v.64 1.92c0 .707-.569 1.28-1.273 1.28h-1.273V11.68c0-.694.55-1.256 1.236-1.276C17.376 7.516 14.957 5.28 12 5.28S6.624 7.516 6.31 10.404C6.995 10.424 7.545 10.986 7.545 11.68v3.2H6.273C5.57 14.88 5 14.307 5 13.6v-.427V11.04ZM16.455 16.8v-.64h1.273v.64c0 1.406-1.147 2.56-2.545 2.56h-2.081a1.28 1.28 0 1 1-2.227-1.135A1.28 1.28 0 0 1 12 17.44c.223.001.442.06.635.172.193.112.354.274.465.468h2.082c.71 0 1.273-.565 1.273-1.28Z"
+            fill="currentColor"
+        />
     </svg>
 );
-export const InstagramIcon = () => (
-    <svg className="h-6 w-6">
-        <path fill-rule="evenodd" clip-rule="evenodd"
-              d="M12 1.38281e-06C18.627 1.67249e-06 24 5.373 24 12C24 18.627 18.627 24 12 24C5.373 24 -1.67249e-06 18.627 -1.38281e-06 12C-1.09314e-06 5.373 5.373 1.09314e-06 12 1.38281e-06ZM5.25 9.23864C5.25 7.03875 7.03875 5.25 9.23863 5.25L14.7614 5.25C16.9612 5.25 18.75 7.03875 18.75 9.23864L18.75 14.7614C18.75 16.9612 16.9612 18.75 14.7614 18.75L9.23864 18.75C7.03875 18.75 5.25 16.9612 5.25 14.7614L5.25 9.23864ZM15.6818 7.70455C16.0193 7.70455 16.2955 7.98068 16.2955 8.31818C16.2955 8.65568 16.0193 8.93182 15.6818 8.93182C15.3443 8.93182 15.0682 8.65568 15.0682 8.31818C15.0682 7.98068 15.3443 7.70455 15.6818 7.70455ZM12 8.625C13.8624 8.625 15.375 10.1376 15.375 12C15.375 13.8624 13.8624 15.375 12 15.375C10.1376 15.375 8.625 13.8624 8.625 12C8.625 10.1376 10.1376 8.625 12 8.625ZM9.23864 12C9.23864 10.4782 10.4782 9.23864 12 9.23864C13.5218 9.23864 14.7614 10.4782 14.7614 12C14.7614 13.5218 13.5218 14.7614 12 14.7614C10.4782 14.7614 9.23864 13.5218 9.23864 12Z"
-              fill="white"/>
+
+export const InstagramIcon: FC<IconProps> = ({className = "h-6 w-6"}) => (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+        <path
+            fillRule="evenodd"
+            clipRule="evenodd"
+            d="M12 0C18.627 0 24 5.373 24 12S18.627 24 12 24 0 18.627 0 12 5.373 0 12 0ZM5.25 9.239c0-2.199 1.789-3.989 3.989-3.989h5.523c2.2 0 3.989 1.79 3.989 3.989v5.523c0 2.199-1.789 3.989-3.989 3.989H9.239A3.989 3.989 0 0 1 5.25 14.761V9.239ZM15.682 7.705a.636.636 0 1 1 0 1.273.636.636 0 0 1 0-1.273ZM12 8.625A3.375 3.375 0 1 1 8.625 12 3.375 3.375 0 0 1 12 8.625Zm-2.761 3.375A2.761 2.761 0 1 0 12 9.239a2.761 2.761 0 0 0-2.761 2.761Z"
+            fill="currentColor"
+        />
     </svg>
 );
