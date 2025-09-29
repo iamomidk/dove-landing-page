@@ -117,12 +117,12 @@ export const VideoSection: FC = () => {
                     aria-controls="dove-video-dialog"
                     style={{ aspectRatio: "1 / 1" }}
                 >
-                    {/* Play icon */}
                     <svg viewBox="0 0 24 24" className="h-10 w-10" aria-hidden="true">
                         <circle cx="12" cy="12" r="12" fill="currentColor" opacity="0.15" />
                         <path d="M9 7l8 5-8 5V7z" fill="currentColor" />
                     </svg>
                 </button>
+
             </div>
 
             {/* Dialog */}

@@ -100,6 +100,8 @@ const GlobalStyles: FC = () => (
       scroll-snap-align: start;
       padding-right: 2rem;
       padding-left: 2rem;
+      padding-bottom: 2rem;
+      padding-top: 2rem;
       display: flex;
       flex-direction: column;
       text-align: right;
@@ -134,6 +136,9 @@ const GlobalStyles: FC = () => (
       font-weight: 700;
       margin-bottom: 0.5rem;
       text-align: justify;
+      white-space: nowrap;        /* ✅ keep in one line */
+      overflow: hidden;           /* hide overflow if too long */
+      text-overflow: ellipsis;    /* show … if cut off */
     }
     .overlay-content .overlay-desc {
       font-size: 1rem;
@@ -141,6 +146,7 @@ const GlobalStyles: FC = () => (
       color: #797776;
       text-align: justify;
       line-height: 1.5;
+      white-space: pre-line;
     }
 
     /* Image container */
@@ -150,16 +156,21 @@ const GlobalStyles: FC = () => (
       transition: filter 0.3s ease;
     }
     .list-card-item:hover .cmp-image__image,
-    .list-card-item.active .cmp-image__image { filter: blur(6px); }
+    .list-card-item.active .cmp-image__image { filter: blur(30px); }
 
     /* Card details */
     .card-item--details { padding-top: 1rem; display: flex; flex-direction: column; flex-grow: 1; }
     .card-item--details .title { margin-bottom: 0.1rem; }
     .card-item--details .card-title {
-      font-size: 1.125rem; font-weight: 700; color: #797776;
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: #797776;
     }
     .card-item--details .card-sub-title {
-      font-size: 12px; font-weight: 700; color: #001F5F;
+      font-size: 12px;
+      font-weight: 700;
+      color: #001F5F;
+      white-space: pre-line;
     }
     .card-item--details a { text-decoration: none; }
 

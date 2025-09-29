@@ -61,7 +61,7 @@ export const products: Product[] = [
     },
     {
         imgSrc: "/deeply_nourishing.jpg",
-        title: "deeply nourishing",
+        title: "DEEPLY NOURISHING",
         description: "رطوبت‌رسان عمیق\n" +
             "با فرمولاسیون لطیف\n" +
             "غنی‌شده به یک‌چهارم کرم مرطوب‌کننده",
@@ -80,10 +80,11 @@ export const products: Product[] = [
     {
         imgSrc: "/deeply nourishing_xl.jpg",
         title: "DEEPLY NOURISHING",
-        description: "شامپوی موهای بلند و سست\n" +
-            "تا 4 برابر ساقه‌ی موهایی قوی تر حاوی سرامید",
-        hoverTitle: "مناسب موهای سست و شکننده",
-        hoverDesc: "مرهم موهای بلند تارهای مو را عمیقا سرشار و مستحکم می‌سازد و مقاومتشان را در برابر موخوره افزایش می‌دهد. این شامپو با تقویت مو  ریزش را متوقف کرده و رشد طبیعی زلف بلند را تقویت می‌کند.",
+        description: "رطوبت‌رسان عمیق\n" +
+            "با فرمولاسیون لطیف\n" +
+            "غنی‌شده به یک‌چهارم کرم مرطوب‌کننده",
+        hoverTitle: "رطوبت‌رسان عمیق",
+        hoverDesc: "با فرمولاسیون لطیف و ملایم، غنی‌شده به یک‌چهارم کرم مرطوب‌کننده که با هر بار شست‌وشو دستان شما را نرم و لطیف می‌کند.",
         hoverTextColor: "#07255B"
     },
 ];
