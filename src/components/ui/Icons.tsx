@@ -10,6 +10,13 @@ export const HeaderLogo: FC<IconProps> = () => (
         className="h-7 w-auto"
     />
 );
+export const CopyLogo: FC<IconProps> = () => (
+    <img
+        src="/copy.png"
+        alt="copy Logo"
+        className="h-4 w-4"
+    />
+);
 
 export const HomeIcon: FC<IconProps> = ({className = "w-6 h-6"}) => (
     <svg

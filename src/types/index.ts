@@ -24,12 +24,16 @@ export interface SignUpModalProps {
     onClose: () => void;
 }
 
-export interface RetailerLinkProps {
+export type RetailerId = "okala" | "snapp" | "digikala";
+
+export type RetailerLinkProps = {
     imgSrc: string;
     alt: string;
-    href: string;
+    href?: string;
     borderColor: string;
-}
+    retailer: RetailerId;                 // NEW
+    onActivate?: (retailer: RetailerId) => void;  // NEW
+};
 
 export interface IconProps {
     className?: string;

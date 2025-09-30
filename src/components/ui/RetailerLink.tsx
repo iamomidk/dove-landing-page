@@ -1,14 +1,20 @@
-import {type FC, useState} from "react";
-import type {RetailerLinkProps} from "../../types";
+import { type FC, useState } from "react";
+import type { RetailerLinkProps } from "../../types";
 
 /**
- * Improved RetailerLink
- * - If `href` is provided (non-empty): renders <a> (navigates).
- * - If `href` is empty/undefined: renders <button> (no navigation).
- * - Hover & "active" visuals preserved; focus acts like hover for keyboard users.
- * - Button variant exposes aria-pressed to screen readers.
+ * RetailerLink
+ * - If href is provided → <a> (opens in same/new tab) AND fires onActivate.
+ * - If href is empty/undefined → <button> and fires onActivate.
+ * - Hover/focus/active visuals preserved.
  */
-export const RetailerLink: FC<RetailerLinkProps> = ({imgSrc, alt, href, borderColor}) => {
+export const RetailerLink: FC<RetailerLinkProps> = ({
+                                                        imgSrc,
+                                                        alt,
+                                                        href,
+                                                        borderColor,
+                                                        retailer,
+                                                        onActivate,
+                                                    }) => {
     const [isHovering, setIsHovering] = useState(false);
     const [isPressed, setIsPressed] = useState(false);
 
@@ -16,26 +22,30 @@ export const RetailerLink: FC<RetailerLinkProps> = ({imgSrc, alt, href, borderCo
     const isActive = isHovering || isPressed;
 
     const baseClasses =
-        "block w-full py-3 px-4 text-center transition-all duration-300 transform focus:outline-none";
+        "block w-full py-3 px-4 text-center transition-all duration-300 transform focus:outline-none bg-white";
+    const inactiveClasses = "border-b-4 shadow-sm";
+    const activeClasses = "border-b-4 border shadow-lg scale-105";
 
-    const inactiveClasses = "border-b-4";
-    const activeClasses = "border-b-4 border scale-105";
-
-    const commonStyle = isActive ? {borderColor} : undefined;
+    const commonStyle = isActive ? { borderColor } : undefined;
     const commonHandlers = {
         onMouseEnter: () => setIsHovering(true),
         onMouseLeave: () => setIsHovering(false),
-        onFocus: () => setIsHovering(true), // keyboard focus behaves like hover
+        onFocus: () => setIsHovering(true),
         onBlur: () => setIsHovering(false),
     };
 
-    // Anchor variant — real navigation, no preventDefault
+    const fireActivate = (e?: React.MouseEvent) => {
+        onActivate?.(retailer);
+        if (e && !isAnchor) e.preventDefault();
+    };
+
     if (isAnchor) {
         const isExternal = /^https?:\/\//i.test(href!);
         return (
             <a
                 href={href}
                 {...commonHandlers}
+                onClick={fireActivate}
                 className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses}`}
                 style={commonStyle}
                 target={isExternal ? "_blank" : undefined}
@@ -48,12 +58,11 @@ export const RetailerLink: FC<RetailerLinkProps> = ({imgSrc, alt, href, borderCo
         );
     }
 
-    // Button variant — no href, purely interactive control
     return (
         <button
             type="button"
             {...commonHandlers}
-            onClick={() => setIsPressed((v) => !v)}
+            onClick={(e) => { setIsPressed(v => !v); fireActivate(e); }}
             className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses}`}
             style={commonStyle}
             aria-label={alt}

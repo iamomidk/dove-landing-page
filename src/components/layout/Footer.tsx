@@ -1,111 +1,153 @@
-import type {FC, JSX} from "react";
-import {RetailerLink} from "../ui/RetailerLink.tsx";
-import {ArrowLeft, InstagramIcon, PhoneIcon} from "../ui/Icons.tsx";
+import {useState, type FC} from "react";
+import {RetailerLink} from "../ui/RetailerLink";
+import {ArrowLeft, InstagramIcon, PhoneIcon} from "../ui/Icons";
+import DiscountCodeModal from "../modal/DiscountCodeModal";
 
-type NavItem = { href: string; label: string; icon?: "arrow" | "phone" };
-type SocialItem = { href: string; label: string; icon: "instagram" };
+type ModalState = {
+    open: boolean;
+    code: string;
+    logoSrc: string;
+    accent: string;
+    title: string;
+    description: string;
+    continueUrl: string;
+};
 
-const STORE_LINKS = [
-    {imgSrc: "/okala_logo.png", alt: "Okala Logo", href: "", borderColor: "#E22533"},
-    {imgSrc: "/snapp_express_logo.png", alt: "Snapp! Express Logo", href: "", borderColor: "#FF9600"},
-    {imgSrc: "/digikala_logo.png", alt: "Digikala Logo", href: "", borderColor: "#ED1944"},
-] as const;
+export const Footer: FC = () => {
+    const [modal, setModal] = useState<ModalState>({
+        open: false,
+        code: "",
+        logoSrc: "/okala_logo.png",
+        accent: "#E22533",
+        title: "کد تخفیف",
+        description: "با وارد کردن این کد از تخفیف ویژه بهره‌مند شوید.",
+        continueUrl: "",
+    });
 
-const NAV_LINKS: NavItem[] = [
-    {href: "/", label: "خانه", icon: "arrow"},
-    {href: "/", label: "معرفی داو", icon: "arrow"},
-    {href: "/", label: "پشتیبانی", icon: "phone"},
-];
+    const openFor = (retailer: "okala" | "snapp") => {
+        const map = {
+            okala: {
+                logoSrc: "/okala_logo.png",
+                accent: "#E22533",
+                code: "110605",
+                title: "کد تخفیف",
+                description: "با وارد کردن لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ، و با استفاده از طراحان گرافیک است، چاپگرها و متون بلکه روزنامه و مجله در ستون و سطرآنچنان که لازم است، و برای شرایط فعلی تکنولوژی مورد نیاز می باشد.",
+                continueUrl: "https://www.okala.com/offer/110605"
+            },
+            snapp: {
+                logoSrc: "/snapp_express_logo.png",
+                accent: "#FF9600",
+                code: "qtrk",
+                title: "کد تخفیف",
+                description: "با وارد کردن لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ، و با استفاده از طراحان گرافیک است، چاپگرها و متون بلکه روزنامه و مجله در ستون و سطرآنچنان که لازم است، و برای شرایط فعلی تکنولوژی مورد نیاز می باشد.",
+                continueUrl: "https://d.snpx.link/qtrk"
+            },
+        } as const;
 
-const SOCIAL_LINKS: SocialItem[] = [
-    {href: "/", label: "اینستاگرام", icon: "instagram"},
-];
+        const cfg = map[retailer];
+        setModal({
+            open: true,
+            code: cfg.code,
+            logoSrc: cfg.logoSrc,
+            accent: cfg.accent,
+            title: cfg.title,
+            description: cfg.description,
+            continueUrl: cfg.continueUrl,
+        });
+    };
 
-export const Footer: FC = () => (
-    <section className="flex flex-col bg-gray-100 w-full  shadow-md overflow-hidden" role="region"
-             aria-labelledby="retailers-title">
-        {/* Retailers */}
-        <div className="w-full flex-grow flex flex-col justify-center items-center p-8">
-            <div className="w-full max-w-xs mx-auto space-y-3">
-                <h2 id="retailers-title" className="text-xl text-brand-blue text-center font-bold mb-16">
-                    با خرید از فروشگاه‌های اکالا و اسنپ تخفیف دریافت کنید.
-                </h2>
+    return (
+        <section className="flex flex-col bg-gray-100 w-full rounded-lg shadow-md overflow-hidden">
+            {/* Retailers column */}
+            <div className="w-full flex-grow flex flex-col justify-center items-center p-8">
+                <div className="w-full max-w-xs mx-auto space-y-3">
+                    <h2 className="text-xl text-brand-blue text-center font-bold">
+                        با خرید از فروشگاه‌های اکالا و اسنپ تخفیف دریافت کنید.
+                    </h2>
 
-                {STORE_LINKS.map((store) => (
                     <RetailerLink
-                        key={store.alt}
-                        imgSrc={store.imgSrc}
-                        alt={store.alt}
-                        href={store.href}
-                        borderColor={store.borderColor}
+                        retailer="okala"
+                        imgSrc="/okala_logo.png"
+                        alt="Okala Logo"
+                        href="" // keep empty to use <button>; set URL to use <a>
+                        borderColor="#E22533"
+                        onActivate={openFor}
                     />
-                ))}
 
-                <h2 className="text-xl text-brand-blue text-center font-bold">
-                    به قید قرعه به مخاطبانی که ثبت نام کردن و سوالات رو پاسخ دادن هدیه اهدا میشه.
-                </h2>
-            </div>
-        </div>
+                    <RetailerLink
+                        retailer="snapp"
+                        imgSrc="/snapp_express_logo.png"
+                        alt="Snapp! Express Logo"
+                        href=""
+                        borderColor="#FF9600"
+                        onActivate={openFor}
+                    />
 
-        {/* Footer */}
-        <footer className="relative w-full text-white mt-16 concave-top" role="contentinfo">
-            <div className="w-full flex-grow flex flex-col justify-center items-start pt-4 pb-4">
-                <img
-                    src="/dove_footer_logo.png"
-                    alt="Dove Logo"
-                    className="h-10 w-auto mb-4 mt-20 opacity-80 pr-8 pl-8"
-                    loading="lazy"
-                />
+                    <RetailerLink
+                        retailer="digikala"
+                        imgSrc="/digikala_logo.png"
+                        alt="Digikala Logo"
+                        href=""
+                        borderColor="#ED1944"
+                        onActivate={openFor}
+                    />
 
-                {/* Address */}
-                <address className="not-italic text-sm space-y-2 opacity-80 mt-4 pr-8 pl-8"
-                         aria-label="آدرس دفتر مرکزی">
-                    <p>دفتر مرکزی</p>
-                    <p>تهران، میدان آرژانتین، خیابان زاگرس، نبش خیابان ۳۳، پلاک ۲۳ کد پستی: ۱۵۱۶۶۸۳۱۱۱</p>
-                </address>
-
-                {/* Nav */}
-                <nav className="mt-12 pr-8 pl-8" aria-label="ناوبری پاورقی">
-                    <ul className="flex flex-col justify-center space-y-2 opacity-80 space-x-reverse">
-                        {NAV_LINKS.map(({href, label, icon}) => (
-                            <li key={label}>
-                                <a href={href} className="flex items-center hover:opacity-100 opacity-100">
-                                    {icon === "arrow" && <ArrowLeft className="h-6 w-6"/>}
-                                    {icon === "phone" && <PhoneIcon className="h-6 w-6"/>}
-                                    <span className="text-s px-2">{label}</span>
-                                </a>
-                            </li>
-                        ))}
-                    </ul>
-                </nav>
-
-                {/* Social */}
-                <div className="mt-6 opacity-80 pr-8 pl-8">
-                    <ul className="flex flex-col space-y-2" aria-label="شبکه‌های اجتماعی">
-                        {SOCIAL_LINKS.map(({href, label, icon}) => (
-                            <li key={label}>
-                                <a
-                                    href={href}
-                                    className="flex items-center hover:opacity-100 opacity-100"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    aria-label={label}
-                                >
-                                    {icon === "instagram" && <InstagramIcon className="h-6 w-6"/>}
-                                    <span className="text-s px-2">{label}</span>
-                                </a>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-
-                {/* Legal */}
-                <div className="mt-12 opacity-80 pr-6 pl-6">
-                    <p className="text-xs">
-                        تمامی حقوق مادی و معنوی این وب‌سایت به گروه داو تعلق دارد. © 2025
-                    </p>
+                    <h2 className="text-xl text-brand-blue text-center font-bold">
+                        به قید قرعه به مخاطبانی که ثبت نام کردن و سوالات رو پاسخ دادن هدیه اهدا میشه.
+                    </h2>
                 </div>
             </div>
-        </footer>
-    </section>
-);
+
+            {/* Bottom footer content (unchanged) */}
+            <footer className="relative w-full text-white mt-16 concave-top">
+                <div className="w-full flex-grow flex flex-col justify-center items-start pt-4 pb-4">
+                    <img
+                        src="/dove_footer_logo.png"
+                        alt="Dove Logo"
+                        className="h-10 w-auto mb-4 mt-20 opacity-80 pr-8 pl-8"
+                    />
+                    <div className="text-sm space-y-2 opacity-80 mt-4 pr-8 pl-8">
+                        <p>دفتر مرکزی</p>
+                        <p>تهران، میدان آرژانتین، خیابان زاگرس، نبش خیابان ۳۳، پلاک ۲۳ کد پستی: ۱۵۱۶۶۸۳۱۱۱</p>
+                    </div>
+                    <div className="flex flex-col justify-center space-y-2 mt-12 space-x-reverse opacity-80 pr-8 pl-8">
+                        <a href="/" className="flex items-center hover:opacity-100 opacity-100">
+                            <ArrowLeft/>
+                            <span className="text-s px-2">خانه</span>
+                        </a>
+                        <a href="/" className="flex items-center hover:opacity-100 opacity-100">
+                            <ArrowLeft/>
+                            <span className="text-s px-2">معرفی داو</span>
+                        </a>
+                        <a href="/" className="flex items-center hover:opacity-100 opacity-100">
+                            <PhoneIcon/>
+                            <span className="text-s px-2">پشتیبانی</span>
+                        </a>
+                    </div>
+                    <div className="mt-6 opacity-80 pr-8 pl-8">
+                        <a href="/" className="flex items-center hover:opacity-100 opacity-100">
+                            <InstagramIcon/>
+                            <span className="text-s px-2">اینستاگرام</span>
+                        </a>
+                    </div>
+                    <div className="mt-12 opacity-80 pr-6 pl-6">
+                        <p className="text-xs">تمامی حقوق مادی و معنوی این وب سایت به گروه داو تعلق دارد . © 2025</p>
+                    </div>
+                </div>
+            </footer>
+
+            {/* Modal */}
+            <DiscountCodeModal
+                isOpen={modal.open}
+                onClose={() => setModal(s => ({...s, open: false}))}
+                code={modal.code}
+                logoSrc={modal.logoSrc}
+                accentTopColor={modal.accent}
+                title={modal.title}
+                description={modal.description}
+                onContinue={() => setModal(s => ({...s, open: false}))}
+                continueUrl={modal.continueUrl}
+            />
+        </section>
+    );
+};
