@@ -13,6 +13,11 @@ type QuestionsDialogProps = {
     isOpen: boolean;
     onClose: () => void;
     onSubmit?: (answers: Record<string, string>) => void;
+    /**
+     * Optional: If you pass your own questions, the component will still apply
+     * the same branching (q1 -> q2_true/q2_false -> q3) IF your ids match:
+     * q1, q2_true, q2_false, q3. Otherwise it falls back to the built-in flow.
+     */
     questions?: Question[];
 };
 
@@ -24,6 +29,54 @@ function toPersianDigits(input: string | number): string {
     return String(input).replace(/[0-9]/g, d => persianDigits[Number(d)]);
 }
 
+/* ----------------------- default branching questions ----------------------- */
+
+const BUILTIN_QUESTIONS: Record<string, Question> = {
+    q1: {
+        id: "q1",
+        title: "رنگ یا دکلره",
+        options: [
+            {id: "o1", label: "آره"},
+            {id: "o2", label: "نه"},
+        ],
+        required: true,
+    },
+    q2_true: {
+        id: "q2_true",
+        title: "هدف اصلی مراقبت از موهات چیه؟",
+        options: [
+            {id: "o1", label: "ترمیم موهای آسیب دیده "},
+            {id: "o2", label: "تقویتاستحکام تار  موها"},
+            {id: "o3", label: "حفظ رطوبت موها"},
+            {id: "o4", label: "حفظ شفافیت رنگ موها، ترمیم آسیب دیدگی مو یا جلوگیری از  آسیب ناشی از رنگ شدگی موها"},
+            {id: "o5", label: "تمیزی چربی کف سر و ساقه مو"},
+        ],
+        required: true,
+    },
+    q2_false: {
+        id: "q2_false",
+        title: "حالت و نوع موهات رو به صورت کلی انتخاب کن",
+        options: [
+            {id: "o1", label: "چرب و سبک"},
+            {id: "o2", label: "خشک و وز"},
+            {id: "o3", label: "نازک و شکننده"},
+            {id: "o4", label: "معمولی"},
+        ],
+        required: true,
+    },
+    q3: {
+        id: "q3",
+        title: "بزرگ‌ترین مشکلت با موهات چیه؟",
+        options: [
+            {id: "o1", label: "وز و خشک بودن "},
+            {id: "o2", label: "ریزش از ساقه داره و شکننده بودن"},
+            {id: "o3", label: "چرب شدن سریع"},
+            {id: "o4", label: "نیاز به حفظ رطوبت"},
+        ],
+        required: true,
+    },
+};
+
 /* ------------------------------- component -------------------------------- */
 
 export const QuestionsDialog: FC<QuestionsDialogProps> = ({
@@ -32,49 +85,30 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
                                                               onSubmit,
                                                               questions,
                                                           }) => {
-    const DEFAULT_QUESTIONS: Question[] = useMemo(() => ([
-        {
-            id: "q1",
-            title: "رنگ یا دکلره",
-            options: [
-                {id: "o1", label: "آره"},
-                {id: "o2", label: "نه"},
-            ],
-            required: true,
-        },
-        {
-            id: "q2",
-            title: "چند بار در هفته از شامپو استفاده می‌کنید؟",
-            options: [
-                {id: "o1", label: "۱–۲ بار"},
-                {id: "o2", label: "۳–۴ بار"},
-                {id: "o3", label: "۵ بار یا بیشتر"},
-            ],
-            required: true,
-        },
-        {
-            id: "q3",
-            title: "بیشتر به کدام ویژگی اهمیت می‌دهید؟",
-            options: [
-                {id: "o1", label: "لطافت و رطوبت"},
-                {id: "o2", label: "کنترل چربی"},
-                {id: "o3", label: "تقویت و ترمیم"},
-                {id: "o4", label: "حجم‌دهی"},
-            ],
-        },
-    ]), []);
+    /**
+     * If custom questions are passed and they use the same ids (q1, q2_true, q2_false, q3),
+     * they’ll be used; otherwise we fall back to BUILTIN_QUESTIONS.
+     */
+    const BANK = useMemo(() => {
+        if (!questions?.length) return BUILTIN_QUESTIONS;
 
-    const data = questions && questions.length ? questions : DEFAULT_QUESTIONS;
+        const byId: Record<string, Question> = {};
+        for (const q of questions) byId[q.id] = q;
 
-    const [step, setStep] = useState(0);
+        const hasAllIds = ["q1", "q2_true", "q2_false", "q3"].every(id => byId[id]);
+        return hasAllIds ? byId : BUILTIN_QUESTIONS;
+    }, [questions]);
+
+    // answers keyed by question id → option id
     const [answers, setAnswers] = useState<Record<string, string>>({});
+    const [step, setStep] = useState(0);
 
     const dialogRootRef = useRef<HTMLDivElement | null>(null);
     const cardRef = useRef<HTMLDivElement | null>(null);
 
     /* ------------------------------ lifecycle -------------------------------- */
 
-    // lock scroll + reset focus context
+    // lock scroll
     useEffect(() => {
         if (!isOpen) return;
         const prev = document.body.style.overflow;
@@ -132,14 +166,43 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
 
     /* --------------------------------- logic --------------------------------- */
 
-    const total = data.length;
-    const current = data[step];
-    const currentValue = answers[current?.id];
+    // Build the dynamic sequence based on answers so far
+    const sequence: Question[] = useMemo(() => {
+        const s: Question[] = [];
+        s.push(BANK.q1);
+
+        const q1Val = answers["q1"];
+        if (q1Val === "o1") {
+            // آره → فقط q2_true (بدون q3)
+            s.push(BANK.q2_true);
+        } else if (q1Val === "o2") {
+            // نه → q2_false سپس q3
+            s.push(BANK.q2_false);
+            s.push(BANK.q3);
+        }
+
+        return s;
+    }, [answers, BANK]);
+
+    const total = sequence.length;
+    const current = sequence[Math.min(step, total - 1)];
+    const currentValue = current ? answers[current.id] : undefined;
 
     const canNext = current?.required ? Boolean(currentValue) : true;
 
     const selectAnswer = (qid: string, oid: string) =>
-        setAnswers(prev => ({...prev, [qid]: oid}));
+        setAnswers(prev => {
+            // If user changes q1, clear the opposite branch answers
+            if (qid === "q1" && prev[qid] !== oid) {
+                const next = {...prev, [qid]: oid};
+                delete next["q2_true"];
+                delete next["q2_false"];
+                // Also guard step in case sequence shrinks
+                // (handled below by effect watching sequence)
+                return next;
+            }
+            return {...prev, [qid]: oid};
+        });
 
     const goPrev = () => setStep(s => Math.max(0, s - 1));
     const goNext = () => canNext && setStep(s => Math.min(total - 1, s + 1));
@@ -148,6 +211,11 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
         onSubmit?.(answers);
         onClose();
     };
+
+    // If sequence shrank (because q1 changed), keep step in bounds
+    useEffect(() => {
+        setStep(s => Math.min(s, Math.max(0, sequence.length - 1)));
+    }, [sequence.length]);
 
     if (!isOpen) return null;
 
@@ -166,7 +234,7 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
         >
             <div
                 ref={cardRef}
-                className="bg-white shadow-2xl w-full max-w-sm mx-auto rounded-none md:"
+                className="bg-white shadow-2xl w-full max-w-sm mx-auto rounded-none"
                 onMouseDown={(e) => e.stopPropagation()}
             >
                 {/* header — mirrors SignUpModal style */}
@@ -195,7 +263,7 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
                             return (
                                 <label
                                     key={opt.id}
-                                    className={`flex items-center rounded-xl px-4 py-3 cursor-pointer transition
+                                    className={`flex items-center rounded-xl px-4 py-3 cursor-pointer transition border
                     ${checked ? "border-[#003366] bg-[#003366]/5" : "border-gray-200 hover:border-gray-300"}`}
                                 >
                                     <input
@@ -239,5 +307,3 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
         </div>
     );
 };
-
-export default QuestionsDialog;

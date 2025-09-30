@@ -1,21 +1,23 @@
-import { useEffect, useRef, useState, type FC, type FormEvent, type ChangeEvent } from "react";
-import { type SignUpModalProps } from "../../types";
-import { QuestionsDialog } from "./QuestionsDialog";
+import {useEffect, useRef, useState, type FC, type FormEvent, type ChangeEvent} from "react";
+import {type SignUpModalProps} from "../../types";
+import {QuestionsDialog} from "./QuestionsDialog";
 
 /* ------------------------------- helpers ------------------------------- */
 
 const IR_MOBILE = /^0?9\d{9}$/; // e.g., 09123456789
 const MOCK_OTP = "1234";
 
-const persianDigits = ["۰","۱","۲","۳","۴","۵","۶","۷","۸","۹"];
-const westernDigits = ["0","1","2","3","4","5","6","7","8","9"];
+const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
+const westernDigits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
 function toPersianDigits(input: string | number): string {
     return String(input).replace(/[0-9]/g, d => persianDigits[Number(d)]);
 }
+
 function toWesternDigits(input: string): string {
     return input.replace(/[۰-۹]/g, d => westernDigits[persianDigits.indexOf(d)]);
 }
+
 const formatTime = (s: number) =>
     `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
@@ -28,19 +30,19 @@ const ModalHeader: FC<{
     titleId: string;
     subtitleId: string;
     canGoBack?: boolean;
-}> = ({ onBack, title, subtitle, titleId, subtitleId, canGoBack = true }) => (
+}> = ({onBack, title, subtitle, titleId, subtitleId, canGoBack = true}) => (
     <>
         <div className="flex justify-end items-center mb-4">
-            <h2 id={titleId} className="text-xl font-bold text-brand-blue text-center flex-grow">
-                {title}
-            </h2>
             {canGoBack && (
                 <button onClick={onBack} className="text-sm text-gray-500 hover:text-gray-800 flex items-center">
                     بازگشت
                 </button>
             )}
         </div>
-        <p id={subtitleId} className="text-gray-500 text-sm text-center mb-6">
+        <h2 id={titleId} className="text-xl font-bold text-brand-blue flex-grow mb-6">
+            {title}
+        </h2>
+        <p id={subtitleId} className="text-gray-500 text-sm mb-6">
             {subtitle}
         </p>
     </>
@@ -48,7 +50,7 @@ const ModalHeader: FC<{
 
 /* ------------------------------ component ------------------------------ */
 
-const SignUpModal: FC<SignUpModalProps> = ({ isOpen, onClose }) => {
+const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
     const [step, setStep] = useState<1 | 2>(1);
     const [termsAccepted, setTermsAccepted] = useState(false);
 
@@ -179,7 +181,7 @@ const SignUpModal: FC<SignUpModalProps> = ({ isOpen, onClose }) => {
                         <div className="p-6">
                             <ModalHeader
                                 onBack={onClose}
-                                title="تثبیت"
+                                title="آشنایی"
                                 subtitle="لطفا شماره موبایل و نام و نام خانوادگی خود را وارد کنید."
                                 titleId={titleId}
                                 subtitleId={subtitleId}
@@ -187,14 +189,11 @@ const SignUpModal: FC<SignUpModalProps> = ({ isOpen, onClose }) => {
                             />
                             <form onSubmit={handleInfoSubmit} noValidate>
                                 <div className="mb-4">
-                                    <label htmlFor="fullName" className="block text-sm text-gray-700 mb-1">
-                                        نام و نام خانوادگی
-                                    </label>
                                     <input
                                         id="fullName"
                                         ref={step1FirstInputRef}
                                         type="text"
-                                        placeholder="مثال: علی رضایی"
+                                        placeholder="نام و نام خانوادگی"
                                         className="rtl-form-input w-full px-4 py-3 border-b-2 border-gray-300 focus:outline-none focus:border-blue-500"
                                         value={fullName}
                                         onChange={(e: ChangeEvent<HTMLInputElement>) => setFullName(e.target.value)}
@@ -203,17 +202,14 @@ const SignUpModal: FC<SignUpModalProps> = ({ isOpen, onClose }) => {
                                 </div>
 
                                 <div className="mb-4">
-                                    <label htmlFor="phone" className="block text-sm text-gray-700 mb-1">
-                                        شماره موبایل
-                                    </label>
                                     <input
                                         id="phone"
                                         type="tel"
-                                        placeholder="مثال: ۰۹۱۲۳۴۵۶۷۸۹"
                                         className="rtl-form-input w-full px-4 py-3 border-b-2 border-gray-300 focus:outline-none focus:border-blue-500"
                                         value={toPersianDigits(phone)}
                                         onChange={handlePhoneChange}
                                         pattern="0?9[0-9]{9}"
+                                        placeholder="شماره موبایل"
                                         required
                                         aria-invalid={phone !== "" && !IR_MOBILE.test(phone)}
                                         aria-describedby="phone-hint"
@@ -258,7 +254,7 @@ const SignUpModal: FC<SignUpModalProps> = ({ isOpen, onClose }) => {
                         <div className="p-6">
                             <ModalHeader
                                 onBack={() => setStep(1)}
-                                title="کد تایید"
+                                title="تثبیت"
                                 subtitle={`کد تست همیشه ${toPersianDigits(MOCK_OTP)} است (ارسال شده به ${toPersianDigits(phone) || "—"})`}
                                 titleId={titleId}
                                 subtitleId={subtitleId}
@@ -280,15 +276,6 @@ const SignUpModal: FC<SignUpModalProps> = ({ isOpen, onClose }) => {
                                     aria-invalid={otp !== "" && otp.length !== 4}
                                 />
 
-                                <div className="flex justify-between items-center my-4">
-                                    <p className="text-sm text-gray-500" aria-live="polite">
-                                        {toPersianDigits(formatTime(timer))}
-                                    </p>
-                                    <button type="button" onClick={() => setStep(1)} className="text-xs text-blue-600 hover:underline">
-                                        شماره موبایل اشتباه است؟
-                                    </button>
-                                </div>
-
                                 <button
                                     type="submit"
                                     className="brand-blue text-white font-bold py-3  w-full"
@@ -296,6 +283,16 @@ const SignUpModal: FC<SignUpModalProps> = ({ isOpen, onClose }) => {
                                 >
                                     {submitting ? "در حال بررسی…" : "نمایش سوالات"}
                                 </button>
+
+                                <div className="flex justify-between items-center my-4">
+                                    <p className="text-sm text-gray-500" aria-live="polite">
+                                        {toPersianDigits(formatTime(timer))}
+                                    </p>
+                                    <button type="button" onClick={() => setStep(1)}
+                                            className="text-xs text-blue-600 hover:underline">
+                                        شماره موبایل اشتباه است؟
+                                    </button>
+                                </div>
 
                                 {errorMsg && <p className="mt-2 text-xs text-red-600 text-center">{errorMsg}</p>}
                             </form>
