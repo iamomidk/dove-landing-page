@@ -2,8 +2,10 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import Kavenegar = require('kavenegar');
-import { z } from 'zod';
+import {z} from 'zod';
 import Redis from 'ioredis';
+import {S3Client, GetObjectCommand} from '@aws-sdk/client-s3';
+import {getSignedUrl} from '@aws-sdk/s3-request-presigner';
 
 // --- Config ---
 const PORT = Number(process.env.PORT || 4000);
@@ -21,19 +23,46 @@ const IR_MOBILE = /^0?9\d{9}$/;
 
 // --- Express ---
 const app = express();
-app.use(cors({ origin: true, credentials: false })); // allow from frontend origin; tighten in prod
+app.use(cors({origin: true, credentials: false})); // allow from frontend origin; tighten in prod
 app.use(express.json());
 
 // --- Redis ---
 const redis = new Redis(process.env.REDIS_URL!);
 
 // --- Kavenegar ---
-const api = Kavenegar.KavenegarApi({ apikey: process.env.KAVENEGAR_API_KEY! });
+const api = Kavenegar.KavenegarApi({apikey: process.env.KAVENEGAR_API_KEY!});
+
+// Validate env up-front so TS narrows types to `string`
+function requireEnv(name: string): string {
+    const v = process.env[name];
+    if (!v) {
+        throw new Error(`Missing required env var: ${name}`);
+    }
+    return v;
+}
+
+const LIARA_ENDPOINT = requireEnv("LIARA_ENDPOINT");         // e.g. https://XXXX.liara.space
+const LIARA_BUCKET_NAME = requireEnv("LIARA_BUCKET_NAME");
+const LIARA_ACCESS_KEY = requireEnv("LIARA_ACCESS_KEY");
+const LIARA_SECRET_KEY = requireEnv("LIARA_SECRET_KEY");
+const LIARA_REGION = process.env.LIARA_REGION ?? "default";  // Liara often uses "default"
+
+// --- Liara S3 client (NEW) ---
+// Now TS knows these are strings (not string|undefined)
+export const s3 = new S3Client({
+    region: LIARA_REGION,
+    endpoint: LIARA_ENDPOINT,    // string is valid; URL also OK: new URL(LIARA_ENDPOINT)
+    credentials: {
+        accessKeyId: LIARA_ACCESS_KEY,
+        secretAccessKey: LIARA_SECRET_KEY,
+    },
+    forcePathStyle: true,        // keep for S3-compatible endpoints
+});
 
 // --- Helpers ---
-const phoneSchema = z.object({ phone: z.string().regex(IR_MOBILE) });
-const sendSchema = phoneSchema.extend({ fullName: z.string().min(2) });
-const verifySchema = phoneSchema.extend({ code: z.string().length(4).regex(/^\d{4}$/) });
+const phoneSchema = z.object({phone: z.string().regex(IR_MOBILE)});
+const sendSchema = phoneSchema.extend({fullName: z.string().min(2)});
+const verifySchema = phoneSchema.extend({code: z.string().length(4).regex(/^\d{4}$/)});
 
 const normPhone = (p: string) => (p.startsWith('0') ? p : `0${p}`);
 const genCode = () => String(Math.floor(1000 + Math.random() * 9000));
@@ -66,10 +95,26 @@ const kVerifyIp = (addr: string) => `rl:verify:ip:${addr}`;
 // Health check (for Docker/NGINX)
 app.get('/health', (_req, res) => res.status(200).send('ok'));
 
+// NEW: get a short-lived signed URL to stream MP4 from Liara Object Storage
+app.get("/api/video-url", async (req, res) => {
+    try {
+        const key = (req.query.key as string) || "input.mp4";
+        const cmd = new GetObjectCommand({
+            Bucket: LIARA_BUCKET_NAME,   // now a guaranteed string
+            Key: key,
+        });
+        const url = await getSignedUrl(s3, cmd, { expiresIn: 60 });
+        res.json({ url });
+    } catch (err: any) {
+        console.error("sign error:", err);
+        res.status(500).json({ error: "failed to sign url" });
+    }
+});
+;
 // Send OTP
 app.post('/api/otp/send', async (req, res) => {
     const parsed = sendSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ ok: false, error: 'Bad payload' });
+    if (!parsed.success) return res.status(400).json({ok: false, error: 'Bad payload'});
 
     const rawPhone = parsed.data.phone;
     const phone = normPhone(rawPhone);
@@ -77,10 +122,10 @@ app.post('/api/otp/send', async (req, res) => {
 
     // Rate limits
     if (await rateLimitHit(kSendPhone(phone), SEND_LIMIT_PER_PHONE, SEND_WINDOW_SECONDS)) {
-        return res.status(429).json({ ok: false, error: 'ارسال بیش از حد، لطفا بعدا تلاش کنید.' });
+        return res.status(429).json({ok: false, error: 'ارسال بیش از حد، لطفا بعدا تلاش کنید.'});
     }
     if (await rateLimitHit(kSendIp(clientIp), SEND_LIMIT_PER_IP, SEND_IP_WINDOW_SECONDS)) {
-        return res.status(429).json({ ok: false, error: 'تعداد درخواست زیاد از IP، لطفا بعدا تلاش کنید.' });
+        return res.status(429).json({ok: false, error: 'تعداد درخواست زیاد از IP، لطفا بعدا تلاش کنید.'});
     }
 
     // Generate + store code
@@ -101,9 +146,9 @@ app.post('/api/otp/send', async (req, res) => {
         },
         (_response: unknown, status: number) => {
             if (status >= 200 && status < 300) {
-                return res.json({ ok: true, ttl: OTP_TTL });
+                return res.json({ok: true, ttl: OTP_TTL});
             }
-            return res.status(502).json({ ok: false, error: 'مشکل در ارسال پیامک' });
+            return res.status(502).json({ok: false, error: 'مشکل در ارسال پیامک'});
         }
     );
 });
@@ -111,7 +156,7 @@ app.post('/api/otp/send', async (req, res) => {
 // Verify OTP
 app.post('/api/otp/verify', async (req, res) => {
     const parsed = verifySchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ ok: false, error: 'Bad payload' });
+    if (!parsed.success) return res.status(400).json({ok: false, error: 'Bad payload'});
 
     const phone = normPhone(parsed.data.phone);
     const codeAttempt = parsed.data.code;
@@ -119,32 +164,32 @@ app.post('/api/otp/verify', async (req, res) => {
 
     // Rate limit verify attempts by IP
     if (await rateLimitHit(kVerifyIp(clientIp), VERIFY_LIMIT_PER_IP, VERIFY_IP_WINDOW_SECONDS)) {
-        return res.status(429).json({ ok: false, error: 'تلاش‌های زیاد، لطفا بعدا تلاش کنید.' });
+        return res.status(429).json({ok: false, error: 'تلاش‌های زیاد، لطفا بعدا تلاش کنید.'});
     }
 
     const [code, expStr] = await redis.mget(kOtp(phone), kExp(phone));
-    if (!code || !expStr) return res.status(400).json({ ok: false, error: 'کد منقضی شده یا ارسال نشده است' });
+    if (!code || !expStr) return res.status(400).json({ok: false, error: 'کد منقضی شده یا ارسال نشده است'});
 
     if (Date.now() > Number(expStr)) {
         await redis.del(kOtp(phone), kExp(phone), kAtt(phone));
-        return res.status(400).json({ ok: false, error: 'کد منقضی شده است' });
+        return res.status(400).json({ok: false, error: 'کد منقضی شده است'});
     }
 
     const attempts = Number((await redis.get(kAtt(phone))) || 0);
     if (attempts >= OTP_MAX_ATTEMPTS) {
         await redis.del(kOtp(phone), kExp(phone), kAtt(phone));
-        return res.status(429).json({ ok: false, error: 'تلاش‌های بیش از حد' });
+        return res.status(429).json({ok: false, error: 'تلاش‌های بیش از حد'});
     }
 
     if (codeAttempt !== code) {
         await redis.incr(kAtt(phone));
         await redis.expire(kAtt(phone), Math.max(30, Math.min(OTP_TTL, 300)));
-        return res.status(400).json({ ok: false, error: 'کد وارد شده نادرست است' });
+        return res.status(400).json({ok: false, error: 'کد وارد شده نادرست است'});
     }
 
     // Success
     await redis.del(kOtp(phone), kExp(phone), kAtt(phone));
-    return res.json({ ok: true });
+    return res.json({ok: true});
 });
 
 // --- Start server ---

@@ -2,9 +2,13 @@ import { type FC, useEffect, useRef, useState } from "react";
 
 export const VideoSection: FC = () => {
     const [open, setOpen] = useState(false);
-    const prefersReducedMotion = typeof window !== "undefined"
-        ? window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-        : false;
+    const [signedUrl, setSignedUrl] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    const prefersReducedMotion =
+        typeof window !== "undefined"
+            ? window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+            : false;
 
     const openDialog = () => setOpen(true);
     const close = () => setOpen(false);
@@ -12,28 +16,25 @@ export const VideoSection: FC = () => {
     // Refs
     const dialogRef = useRef<HTMLDivElement | null>(null);
     const openerBtnRef = useRef<HTMLButtonElement | null>(null);
+    const videoRef = useRef<HTMLVideoElement | null>(null);
 
     // Lock background scroll when open
     useEffect(() => {
         const original = document.body.style.overflow;
         if (open) document.body.style.overflow = "hidden";
         else document.body.style.overflow = original;
-        return () => {
-            document.body.style.overflow = original;
-        };
+        return () => { document.body.style.overflow = original; };
     }, [open]);
 
     // Close on ESC
     useEffect(() => {
         if (!open) return;
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === "Escape") close();
-        };
+        const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
     }, [open]);
 
-    // Focus trap inside dialog + restore focus to opener on close
+    // Focus trap + restore focus to opener on close
     useEffect(() => {
         if (!open) return;
 
@@ -50,51 +51,67 @@ export const VideoSection: FC = () => {
         const focusables = getFocusable();
         const first = focusables[0];
         const last = focusables[focusables.length - 1];
-
         first?.focus();
 
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key !== "Tab") return;
             const current = document.activeElement as HTMLElement | null;
-            // If nothing focused, focus first
-            if (!current) {
-                e.preventDefault();
-                first?.focus();
-                return;
-            }
+            if (!current) { e.preventDefault(); first?.focus(); return; }
             if (!root.contains(current)) return;
 
-            // Cycle focus
-            if (!e.shiftKey && current === last) {
-                e.preventDefault();
-                first?.focus();
-            } else if (e.shiftKey && current === first) {
-                e.preventDefault();
-                last?.focus();
-            }
+            if (!e.shiftKey && current === last) { e.preventDefault(); first?.focus(); }
+            else if (e.shiftKey && current === first) { e.preventDefault(); last?.focus(); }
         };
 
         root.addEventListener("keydown", onKeyDown);
         return () => {
             root.removeEventListener("keydown", onKeyDown);
-            // Restore focus to the opener button after close
             openerBtnRef.current?.focus();
         };
     }, [open]);
 
-    // Build video src only when open; respect reduced motion
-    const videoSrc =
-        open
-            ? `https://www.youtube.com/embed/jcO2I1_zG-E?${new URLSearchParams({
-                autoplay: prefersReducedMotion ? "0" : "1",
-                mute: "1",
-                loop: "1",
-                playlist: "jcO2I1_zG-E",
-                controls: "1",
-                modestbranding: "1",
-                rel: "0",
-            }).toString()}`
-            : undefined;
+    // Fetch a pre-signed URL from the server when dialog opens
+    useEffect(() => {
+        if (!open) return;
+
+        let cancelled = false;
+        setLoading(true);
+        setSignedUrl(null);
+
+        const params = new URLSearchParams({ key: "input.mp4" }); // change object key if needed
+        fetch(`https://dove-backend.liara.run/api/video-url?${params.toString()}`)
+            .then(async (r) => {
+                if (!r.ok) throw new Error("failed to get signed url");
+                return r.json();
+            })
+            .then((data) => {
+                if (!cancelled) setSignedUrl(data.url as string);
+            })
+            .catch(() => {
+                if (!cancelled) setSignedUrl(null);
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+
+        return () => { cancelled = true; };
+    }, [open]);
+
+    // Pause and release src when closing
+    useEffect(() => {
+        if (open) return;
+        const v = videoRef.current;
+        try {
+            if (v) {
+                v.pause();
+                v.removeAttribute("src");
+                v.load();
+            }
+        } catch {}
+        setSignedUrl(null);
+    }, [open]);
+
+    const poster = "/videos/poster.jpg"; // optional; replace with your poster
 
     return (
         <section id="video" className="scroll-section">
@@ -103,7 +120,7 @@ export const VideoSection: FC = () => {
                 <img
                     src="/cover.jpg"
                     alt="تصویر محصولات داو"
-                    className="w-full max-h-[90vh] object-contain sm:object-cover"
+                    className="w-full max-h-[100vh] object-contain sm:object-cover"
                     loading="lazy"
                 />
 
@@ -111,7 +128,7 @@ export const VideoSection: FC = () => {
                     ref={openerBtnRef}
                     type="button"
                     onClick={openDialog}
-                    className="absolute inset-0 m-auto h-20 w-20 rounded-full bg-[#003366] text-white shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#003366] flex items-center justify-center"
+                    className="absolute inset-0 m-auto h-20 w-20 rounded-full bg-[#003366] text-white shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#003366] flex items-center justify-center bg-center"
                     aria-label="پخش ویدیو"
                     aria-haspopup="dialog"
                     aria-controls="dove-video-dialog"
@@ -122,7 +139,6 @@ export const VideoSection: FC = () => {
                         <path d="M9 7l8 5-8 5V7z" fill="currentColor" />
                     </svg>
                 </button>
-
             </div>
 
             {/* Dialog */}
@@ -135,32 +151,35 @@ export const VideoSection: FC = () => {
                     aria-labelledby="dove-video-title"
                     aria-describedby="dove-video-desc"
                     className="fixed inset-0 z-50 flex items-center justify-center"
-                    onMouseDown={(e) => {
-                        // Close on backdrop click (but not when clicking inside content)
-                        if (e.target === e.currentTarget) close();
-                    }}
+                    onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}
                 >
                     {/* Backdrop */}
                     <div className="absolute inset-0 bg-black/80" />
 
                     {/* Dialog content */}
                     <div className="relative z-10 w-full h-full">
-                        {/* Visually-hidden title/desc for SRs */}
                         <h2 id="dove-video-title" className="sr-only">ویدیو داو</h2>
                         <p id="dove-video-desc" className="sr-only">پخش ویدیو در پنجره تمام‌صفحه.</p>
 
-                        {videoSrc && (
-                            <iframe
-                                className="w-full h-full border-none"
-                                src={videoSrc}
-                                title="ویدیو داو"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                                referrerPolicy="strict-origin-when-cross-origin"
-                                allowFullScreen
+                        {signedUrl ? (
+                            <video
+                                ref={videoRef}
+                                className="w-full h-full bg-black"
+                                playsInline
+                                muted
+                                controls
+                                autoPlay={!prefersReducedMotion}
+                                poster={poster}
+                                preload="metadata"
+                                src={signedUrl}
                             />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center text-white">
+                                {loading ? "در حال دریافت ویدیو…" : "خطا در بارگذاری ویدیو"}
+                            </div>
                         )}
 
-                        {/* Close button */}
+                        {/* Close button (overlay) */}
                         <button
                             type="button"
                             onClick={close}
