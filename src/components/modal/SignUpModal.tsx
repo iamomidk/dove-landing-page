@@ -5,20 +5,43 @@ import {QuestionsDialog} from "./QuestionsDialog";
 /* ------------------------------- helpers ------------------------------- */
 
 const IR_MOBILE = /^0?9\d{9}$/; // e.g., 09123456789
-const MOCK_OTP = "1234";
 
 const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
 const westernDigits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
 function toPersianDigits(input: string | number): string {
-    return String(input).replace(/[0-9]/g, d => persianDigits[Number(d)]);
+    return String(input).replace(/[0-9]/g, (d) => persianDigits[Number(d)]);
 }
+
 function toWesternDigits(input: string): string {
-    return input.replace(/[۰-۹]/g, d => westernDigits[persianDigits.indexOf(d)]);
+    return input.replace(/[۰-۹]/g, (d) => westernDigits[persianDigits.indexOf(d)]);
 }
+
 const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
-/* ---------------------------- subcomponents ---------------------------- */
+// --- API helpers ---
+const API_BASE = "https://dove-backend.liara.run"
+
+async function postJSON<T>(path: string, body: unknown): Promise<T> {
+    const res = await fetch(`${API_BASE}${path}`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(body),
+    });
+    let data: any = null;
+    try {
+        data = await res.json();
+    } catch {
+        /* ignore */
+    }
+    if (!res.ok || (data && data.ok === false)) {
+        const msg = data?.error || `خطا در ارتباط با سرور (${res.status})`;
+        throw new Error(msg);
+    }
+    return data as T;
+}
+
+/* ------------------------------ subcomponents ------------------------------ */
 
 const ModalHeader: FC<{
     onBack: () => void;
@@ -53,27 +76,26 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
 
     const [fullName, setFullName] = useState("");
     const [phone, setPhone] = useState(""); // stored as western digits
-    const [otp, setOtp] = useState("");     // stored as western digits
+    const [otp, setOtp] = useState(""); // stored as western digits
 
-    const [timer, setTimer] = useState(115);
+    const [timer, setTimer] = useState(0); // idle until server sends OTP
     const [submitting, setSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [showQuestions, setShowQuestions] = useState(false);
 
-    // 👇 derived visibility: hide/dismiss signup while questions are open
+    // derived visibility: hide/dismiss signup while questions are open
     const modalVisible = isOpen && !showQuestions;
 
     const step1FirstInputRef = useRef<HTMLInputElement | null>(null);
     const step2FirstInputRef = useRef<HTMLInputElement | null>(null);
     const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
-    // open/close lifecycle — keep coupled to isOpen (not modalVisible),
-    // so state resets still run when the signup is initially opened.
+    // open/close lifecycle — keep coupled to isOpen
     useEffect(() => {
         if (!isOpen) return;
         setStep(1);
         setTermsAccepted(false);
-        setTimer(115);
+        setTimer(0);
         setOtp("");
         setErrorMsg(null);
         setShowQuestions(false);
@@ -96,9 +118,9 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
         else step2FirstInputRef.current?.focus();
     }, [modalVisible, step]);
 
-    // countdown timer — only tick while signup modal is visible
+    // countdown timer — only tick while signup modal is visible AND on step 2
     useEffect(() => {
-        if (!modalVisible) return;
+        if (!modalVisible || step !== 2) return;
         if (intervalRef.current) clearInterval(intervalRef.current);
         intervalRef.current = window.setInterval(() => {
             setTimer((t) => (t > 0 ? t - 1 : 0));
@@ -121,35 +143,40 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
 
     /* ------------------------------ handlers ------------------------------ */
 
-    // Mock “send code”
-    const handleInfoSubmit = (e: FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
+    // Send OTP via server
+    const handleInfoSubmit = (e?: FormEvent<HTMLFormElement>) => {
+        if (e) e.preventDefault();
         if (!IR_MOBILE.test(phone) || !fullName) return;
 
         setSubmitting(true);
         setErrorMsg(null);
-        setTimeout(() => {
-            setSubmitting(false);
-            setStep(2);
-            setTimer(115);
-            // In real world, we'd call /api/otp/send here
-        }, 500);
+        postJSON<{ ok: true; ttl: number }>("/api/otp/send", {phone, fullName})
+            .then(({ttl}) => {
+                setStep(2);
+                setTimer(Number.isFinite(ttl) ? ttl : 120); // start from server TTL
+            })
+            .catch((err: Error) => {
+                setErrorMsg(err.message);
+            })
+            .finally(() => setSubmitting(false));
     };
 
-    // Mock “verify code”
+    // Verify OTP via server
     const handleOtpSubmit = (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        if (otp.length !== 4) return;
+
         setSubmitting(true);
         setErrorMsg(null);
-        setTimeout(() => {
-            setSubmitting(false);
-            if (otp === MOCK_OTP) {
+        postJSON<{ ok: true }>("/api/otp/verify", {phone, code: otp})
+            .then(() => {
                 // ✅ open Questions and implicitly dismiss/hide the signup modal
                 setShowQuestions(true);
-            } else {
-                setErrorMsg(`کد وارد شده نادرست است (کد صحیح: ${toPersianDigits(MOCK_OTP)})`);
-            }
-        }, 500);
+            })
+            .catch((err: Error) => {
+                setErrorMsg(err.message);
+            })
+            .finally(() => setSubmitting(false));
     };
 
     // Persian-digit controlled inputs
@@ -175,7 +202,7 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                             onClose(); // finally close signup after finishing questions
                         }}
                         onSubmit={(answers) => {
-                            // mock: log answers; integrate with backend later
+                            // integrate with backend later
                             console.log("answers:", answers);
                         }}
                     />
@@ -242,8 +269,9 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                                 </div>
 
                                 <div className="flex items-center my-6">
+                                    {/* No ticking timer on step 1 */}
                                     <p className="text-sm text-gray-500 ml-auto" aria-live="polite">
-                                        {toPersianDigits(formatTime(timer))}
+                                        —
                                     </p>
                                     <input
                                         id="terms"
@@ -277,7 +305,7 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                             <ModalHeader
                                 onBack={() => setStep(1)}
                                 title="تثبیت"
-                                subtitle={`کد تست همیشه ${toPersianDigits(MOCK_OTP)} است (ارسال شده به ${toPersianDigits(phone) || "—"})`}
+                                subtitle={`کد تایید برای ${toPersianDigits(phone)} ارسال شد.`}
                                 titleId={titleId}
                                 subtitleId={subtitleId}
                             />
@@ -306,11 +334,21 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                                     {submitting ? "در حال بررسی…" : "نمایش سوالات"}
                                 </button>
 
-                                <div className="flex justify-between items-center my-4">
+                                <div className="flex justify-between items-center my-4 gap-3">
                                     <p className="text-sm text-gray-500" aria-live="polite">
                                         {toPersianDigits(formatTime(timer))}
                                     </p>
-                                    <button type="button" onClick={() => setStep(1)} className="text-xs text-blue-600 hover:underline">
+                                    <button
+                                        type="button"
+                                        className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+                                        onClick={() => handleInfoSubmit()}
+                                        disabled={submitting || timer > 0}
+                                        aria-disabled={submitting || timer > 0}
+                                    >
+                                        ارسال مجدد کد
+                                    </button>
+                                    <button type="button" onClick={() => setStep(1)}
+                                            className="text-xs text-blue-600 hover:underline">
                                         شماره موبایل اشتباه است؟
                                     </button>
                                 </div>

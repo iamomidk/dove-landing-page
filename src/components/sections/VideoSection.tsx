@@ -183,7 +183,7 @@ export const VideoSection: FC = () => {
                         <button
                             type="button"
                             onClick={close}
-                            className="absolute top-4 right-4 h-12 w-12 rounded-full bg-[#003366] text-white flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white"
+                            className="absolute top-4 right-4 h-12 w-12 rounded-full bg-[#003366] text-white flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white mt-16"
                             aria-label="بستن ویدیو"
                         >
                             <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">
