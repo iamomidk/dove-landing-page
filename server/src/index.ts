@@ -1,14 +1,19 @@
-import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
-import Kavenegar = require('kavenegar');
-import {z} from 'zod';
-import Redis from 'ioredis';
-import {S3Client, GetObjectCommand} from '@aws-sdk/client-s3';
-import {getSignedUrl} from '@aws-sdk/s3-request-presigner';
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import Kavenegar = require("kavenegar");
+import { z } from "zod";
+import Redis from "ioredis";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-// --- Config ---
+/* ------------------------------------
+ * Config
+ * ------------------------------------ */
 const PORT = Number(process.env.PORT || 4000);
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "*"; // tighten in prod
+
 const OTP_TTL = Number(process.env.OTP_TTL_SECONDS ?? 300);
 const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS ?? 5);
 
@@ -21,55 +26,70 @@ const VERIFY_IP_WINDOW_SECONDS = Number(process.env.VERIFY_IP_WINDOW_SECONDS ?? 
 
 const IR_MOBILE = /^0?9\d{9}$/;
 
-// --- Express ---
+/* ------------------------------------
+ * App & Middleware
+ * ------------------------------------ */
 const app = express();
-app.use(cors({origin: true, credentials: false})); // allow from frontend origin; tighten in prod
-app.use(express.json());
+app.set("trust proxy", true); // so x-forwarded-for works behind proxies
 
-// --- Redis ---
+app.use(helmet());
+app.use(
+    cors({
+        origin: FRONTEND_ORIGIN === "*" ? true : FRONTEND_ORIGIN,
+        credentials: false,
+    })
+);
+app.use(express.json({ limit: "10kb" }));
+
+/* ------------------------------------
+ * Redis
+ * ------------------------------------ */
 const redis = new Redis(process.env.REDIS_URL!);
+redis.on("error", (e) => console.error("Redis error:", e));
 
-// --- Kavenegar ---
-const api = Kavenegar.KavenegarApi({apikey: process.env.KAVENEGAR_API_KEY!});
+/* ------------------------------------
+ * Kavenegar
+ * ------------------------------------ */
+const api = Kavenegar.KavenegarApi({ apikey: process.env.KAVENEGAR_API_KEY! });
 
-// Validate env up-front so TS narrows types to `string`
+/* ------------------------------------
+ * Liara S3 (signed video URLs)
+ * ------------------------------------ */
 function requireEnv(name: string): string {
     const v = process.env[name];
-    if (!v) {
-        throw new Error(`Missing required env var: ${name}`);
-    }
+    if (!v) throw new Error(`Missing required env var: ${name}`);
     return v;
 }
 
-const LIARA_ENDPOINT = requireEnv("LIARA_ENDPOINT");         // e.g. https://XXXX.liara.space
+const LIARA_ENDPOINT = requireEnv("LIARA_ENDPOINT");
 const LIARA_BUCKET_NAME = requireEnv("LIARA_BUCKET_NAME");
 const LIARA_ACCESS_KEY = requireEnv("LIARA_ACCESS_KEY");
 const LIARA_SECRET_KEY = requireEnv("LIARA_SECRET_KEY");
-const LIARA_REGION = process.env.LIARA_REGION ?? "default";  // Liara often uses "default"
+const LIARA_REGION = process.env.LIARA_REGION ?? "default";
 
-// --- Liara S3 client (NEW) ---
-// Now TS knows these are strings (not string|undefined)
 export const s3 = new S3Client({
     region: LIARA_REGION,
-    endpoint: LIARA_ENDPOINT,    // string is valid; URL also OK: new URL(LIARA_ENDPOINT)
+    endpoint: LIARA_ENDPOINT,
     credentials: {
         accessKeyId: LIARA_ACCESS_KEY,
         secretAccessKey: LIARA_SECRET_KEY,
     },
-    forcePathStyle: true,        // keep for S3-compatible endpoints
+    forcePathStyle: true,
 });
 
-// --- Helpers ---
-const phoneSchema = z.object({phone: z.string().regex(IR_MOBILE)});
-const sendSchema = phoneSchema.extend({fullName: z.string().min(2)});
-const verifySchema = phoneSchema.extend({code: z.string().length(4).regex(/^\d{4}$/)});
+/* ------------------------------------
+ * Helpers & Validation
+ * ------------------------------------ */
+const phoneSchema = z.object({ phone: z.string().regex(IR_MOBILE) });
+const sendSchema = phoneSchema.extend({ fullName: z.string().min(2) });
+const verifySchema = phoneSchema.extend({ code: z.string().length(4).regex(/^\d{4}$/) });
 
-const normPhone = (p: string) => (p.startsWith('0') ? p : `0${p}`);
+const normPhone = (p: string) => (p.startsWith("0") ? p : `0${p}`);
 const genCode = () => String(Math.floor(1000 + Math.random() * 9000));
-const ip = (req: express.Request) =>
-    (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+const clientIp = (req: express.Request) =>
+    (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
     req.socket.remoteAddress ||
-    '0.0.0.0';
+    "0.0.0.0";
 
 async function rateLimitHit(key: string, limit: number, windowSec: number) {
     const script = `
@@ -90,19 +110,18 @@ const kSendPhone = (p: string) => `rl:send:phone:${p}`;
 const kSendIp = (addr: string) => `rl:send:ip:${addr}`;
 const kVerifyIp = (addr: string) => `rl:verify:ip:${addr}`;
 
-// --- Routes ---
+/* ------------------------------------
+ * Routes
+ * ------------------------------------ */
 
-// Health check (for Docker/NGINX)
-app.get('/health', (_req, res) => res.status(200).send('ok'));
+// Health
+app.get("/health", (_req, res) => res.status(200).send("ok"));
 
-// NEW: get a short-lived signed URL to stream MP4 from Liara Object Storage
+// Signed video URL (Liara)
 app.get("/api/video-url", async (req, res) => {
     try {
         const key = (req.query.key as string) || "input.mp4";
-        const cmd = new GetObjectCommand({
-            Bucket: LIARA_BUCKET_NAME,   // now a guaranteed string
-            Key: key,
-        });
+        const cmd = new GetObjectCommand({ Bucket: LIARA_BUCKET_NAME, Key: key });
         const url = await getSignedUrl(s3, cmd, { expiresIn: 60 });
         res.json({ url });
     } catch (err: any) {
@@ -110,89 +129,100 @@ app.get("/api/video-url", async (req, res) => {
         res.status(500).json({ error: "failed to sign url" });
     }
 });
-;
+
 // Send OTP
-app.post('/api/otp/send', async (req, res) => {
+app.post("/api/otp/send", async (req, res) => {
     const parsed = sendSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ok: false, error: 'Bad payload'});
+    if (!parsed.success) return res.status(400).json({ ok: false, error: "Bad payload" });
 
     const rawPhone = parsed.data.phone;
     const phone = normPhone(rawPhone);
-    const clientIp = ip(req);
+    const ip = clientIp(req);
 
     // Rate limits
     if (await rateLimitHit(kSendPhone(phone), SEND_LIMIT_PER_PHONE, SEND_WINDOW_SECONDS)) {
-        return res.status(429).json({ok: false, error: 'ارسال بیش از حد، لطفا بعدا تلاش کنید.'});
+        return res.status(429).json({ ok: false, error: "ارسال بیش از حد، لطفا بعدا تلاش کنید." });
     }
-    if (await rateLimitHit(kSendIp(clientIp), SEND_LIMIT_PER_IP, SEND_IP_WINDOW_SECONDS)) {
-        return res.status(429).json({ok: false, error: 'تعداد درخواست زیاد از IP، لطفا بعدا تلاش کنید.'});
+    if (await rateLimitHit(kSendIp(ip), SEND_LIMIT_PER_IP, SEND_IP_WINDOW_SECONDS)) {
+        return res.status(429).json({ ok: false, error: "تعداد درخواست زیاد از IP، لطفا بعدا تلاش کنید." });
     }
 
     // Generate + store code
     const code = genCode();
     const expiresAt = Date.now() + OTP_TTL * 1000;
     await Promise.all([
-        redis.set(kOtp(phone), code, 'EX', OTP_TTL),
-        redis.set(kExp(phone), String(expiresAt), 'EX', OTP_TTL),
+        redis.set(kOtp(phone), code, "EX", OTP_TTL),
+        redis.set(kExp(phone), String(expiresAt), "EX", OTP_TTL),
         redis.del(kAtt(phone)),
     ]);
 
-    // Send via Kavenegar VerifyLookup
-    api.VerifyLookup(
-        {
-            receptor: phone,
-            token: code,
-            template: process.env.KAVENEGAR_VERIFY_TEMPLATE || 'registerverify',
-        },
-        (_response: unknown, status: number) => {
-            if (status >= 200 && status < 300) {
-                return res.json({ok: true, ttl: OTP_TTL});
-            }
-            return res.status(502).json({ok: false, error: 'مشکل در ارسال پیامک'});
-        }
-    );
+    // Send via Kavenegar VerifyLookup (wrap in promise)
+    try {
+        await new Promise<void>((resolve, reject) => {
+            api.VerifyLookup(
+                {
+                    receptor: phone,
+                    token: code,
+                    template: process.env.KAVENEGAR_VERIFY_TEMPLATE || "registerverify",
+                },
+                (_response: unknown, status: number) => {
+                    if (status >= 200 && status < 300) return resolve();
+                    reject(Object.assign(new Error("sms send failed"), { status }));
+                }
+            );
+        });
+    } catch (e) {
+        // rollback redis keys if sending failed
+        await redis.del(kOtp(phone), kExp(phone), kAtt(phone));
+        console.error("Kavenegar send failed:", e);
+        return res.status(502).json({ ok: false, error: "مشکل در ارسال پیامک" });
+    }
+
+    return res.json({ ok: true, ttl: OTP_TTL });
 });
 
 // Verify OTP
-app.post('/api/otp/verify', async (req, res) => {
+app.post("/api/otp/verify", async (req, res) => {
     const parsed = verifySchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ok: false, error: 'Bad payload'});
+    if (!parsed.success) return res.status(400).json({ ok: false, error: "Bad payload" });
 
     const phone = normPhone(parsed.data.phone);
     const codeAttempt = parsed.data.code;
-    const clientIp = ip(req);
+    const ip = clientIp(req);
 
     // Rate limit verify attempts by IP
-    if (await rateLimitHit(kVerifyIp(clientIp), VERIFY_LIMIT_PER_IP, VERIFY_IP_WINDOW_SECONDS)) {
-        return res.status(429).json({ok: false, error: 'تلاش‌های زیاد، لطفا بعدا تلاش کنید.'});
+    if (await rateLimitHit(kVerifyIp(ip), VERIFY_LIMIT_PER_IP, VERIFY_IP_WINDOW_SECONDS)) {
+        return res.status(429).json({ ok: false, error: "تلاش‌های زیاد، لطفا بعدا تلاش کنید." });
     }
 
     const [code, expStr] = await redis.mget(kOtp(phone), kExp(phone));
-    if (!code || !expStr) return res.status(400).json({ok: false, error: 'کد منقضی شده یا ارسال نشده است'});
+    if (!code || !expStr) return res.status(400).json({ ok: false, error: "کد منقضی شده یا ارسال نشده است" });
 
     if (Date.now() > Number(expStr)) {
         await redis.del(kOtp(phone), kExp(phone), kAtt(phone));
-        return res.status(400).json({ok: false, error: 'کد منقضی شده است'});
+        return res.status(400).json({ ok: false, error: "کد منقضی شده است" });
     }
 
     const attempts = Number((await redis.get(kAtt(phone))) || 0);
     if (attempts >= OTP_MAX_ATTEMPTS) {
         await redis.del(kOtp(phone), kExp(phone), kAtt(phone));
-        return res.status(429).json({ok: false, error: 'تلاش‌های بیش از حد'});
+        return res.status(429).json({ ok: false, error: "تلاش‌های بیش از حد" });
     }
 
     if (codeAttempt !== code) {
         await redis.incr(kAtt(phone));
         await redis.expire(kAtt(phone), Math.max(30, Math.min(OTP_TTL, 300)));
-        return res.status(400).json({ok: false, error: 'کد وارد شده نادرست است'});
+        return res.status(400).json({ ok: false, error: "کد وارد شده نادرست است" });
     }
 
     // Success
     await redis.del(kOtp(phone), kExp(phone), kAtt(phone));
-    return res.json({ok: true});
+    return res.json({ ok: true });
 });
 
-// --- Start server ---
+/* ------------------------------------
+ * Start
+ * ------------------------------------ */
 app.listen(PORT, () => {
     console.log(`✅ OTP API listening on http://localhost:${PORT}`);
 });
