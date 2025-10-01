@@ -41,6 +41,6 @@ jobs:
           LIARA_TOKEN: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2NTg1NDI0ZjAxNGQwNTg4NjY0ZWYwYzIiLCJ0eXBlIjoiYXV0aCIsImlhdCI6MTc1NTg2NTA0OH0.P6xrHBYQJlrvDynsp1Sxzbb3VcktprriP9Isyx6MHMQ   # add this in repo Settings → Secrets
         run: |
           npm i -g @liara/cli
-          liara deploy --api-token="$LIARA_TOKEN"
+          # liara deploy --api-token="$LIARA_TOKEN"
           # If you don't use liara.json, pass flags:
-          # liara deploy --app="dove-backend" --port=3000 --api-token="$LIARA_TOKEN"
+          liara deploy --app="dove-backend" --port=3000 --api-token="$LIARA_TOKEN"
