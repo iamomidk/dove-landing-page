@@ -13,13 +13,10 @@ const westernDigits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 function toPersianDigits(input: string | number): string {
     return String(input).replace(/[0-9]/g, d => persianDigits[Number(d)]);
 }
-
 function toWesternDigits(input: string): string {
     return input.replace(/[۰-۹]/g, d => westernDigits[persianDigits.indexOf(d)]);
 }
-
-const formatTime = (s: number) =>
-    `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
 /* ---------------------------- subcomponents ---------------------------- */
 
@@ -63,11 +60,15 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [showQuestions, setShowQuestions] = useState(false);
 
+    // 👇 derived visibility: hide/dismiss signup while questions are open
+    const modalVisible = isOpen && !showQuestions;
+
     const step1FirstInputRef = useRef<HTMLInputElement | null>(null);
     const step2FirstInputRef = useRef<HTMLInputElement | null>(null);
     const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
-    // open/close lifecycle
+    // open/close lifecycle — keep coupled to isOpen (not modalVisible),
+    // so state resets still run when the signup is initially opened.
     useEffect(() => {
         if (!isOpen) return;
         setStep(1);
@@ -88,16 +89,16 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
         };
     }, [isOpen]);
 
-    // focus per step
+    // focus per step — only when the signup modal is visible
     useEffect(() => {
-        if (!isOpen) return;
+        if (!modalVisible) return;
         if (step === 1) step1FirstInputRef.current?.focus();
         else step2FirstInputRef.current?.focus();
-    }, [isOpen, step]);
+    }, [modalVisible, step]);
 
-    // countdown timer
+    // countdown timer — only tick while signup modal is visible
     useEffect(() => {
-        if (!isOpen) return;
+        if (!modalVisible) return;
         if (intervalRef.current) clearInterval(intervalRef.current);
         intervalRef.current = window.setInterval(() => {
             setTimer((t) => (t > 0 ? t - 1 : 0));
@@ -108,15 +109,15 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                 intervalRef.current = undefined;
             }
         };
-    }, [isOpen, step]);
+    }, [modalVisible, step]);
 
-    // close on ESC
+    // close on ESC — only when signup modal is visible
     useEffect(() => {
-        if (!isOpen) return;
+        if (!modalVisible) return;
         const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
-    }, [isOpen, onClose]);
+    }, [modalVisible, onClose]);
 
     /* ------------------------------ handlers ------------------------------ */
 
@@ -143,7 +144,7 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
         setTimeout(() => {
             setSubmitting(false);
             if (otp === MOCK_OTP) {
-                // Show questions dialog instead of closing immediately
+                // ✅ open Questions and implicitly dismiss/hide the signup modal
                 setShowQuestions(true);
             } else {
                 setErrorMsg(`کد وارد شده نادرست است (کد صحیح: ${toPersianDigits(MOCK_OTP)})`);
@@ -161,7 +162,27 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
         setOtp(raw.replace(/\D/g, "").slice(0, 4));
     };
 
-    if (!isOpen) return null;
+    // ⛔ don't render signup modal if not visible
+    if (!modalVisible) {
+        return (
+            <>
+                {/* Questions dialog (opens after successful OTP) */}
+                {showQuestions && (
+                    <QuestionsDialog
+                        isOpen={showQuestions}
+                        onClose={() => {
+                            setShowQuestions(false);
+                            onClose(); // finally close signup after finishing questions
+                        }}
+                        onSubmit={(answers) => {
+                            // mock: log answers; integrate with backend later
+                            console.log("answers:", answers);
+                        }}
+                    />
+                )}
+            </>
+        );
+    }
 
     const titleId = "signup-modal-title";
     const subtitleId = "signup-modal-subtitle";
@@ -209,6 +230,7 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                                         value={toPersianDigits(phone)}
                                         onChange={handlePhoneChange}
                                         pattern="0?9[0-9]{9}"
+                                        maxLength={11}
                                         placeholder="شماره موبایل"
                                         required
                                         aria-invalid={phone !== "" && !IR_MOBILE.test(phone)}
@@ -288,8 +310,7 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                                     <p className="text-sm text-gray-500" aria-live="polite">
                                         {toPersianDigits(formatTime(timer))}
                                     </p>
-                                    <button type="button" onClick={() => setStep(1)}
-                                            className="text-xs text-blue-600 hover:underline">
+                                    <button type="button" onClick={() => setStep(1)} className="text-xs text-blue-600 hover:underline">
                                         شماره موبایل اشتباه است؟
                                     </button>
                                 </div>
@@ -310,7 +331,6 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                         onClose(); // finally close signup after finishing questions
                     }}
                     onSubmit={(answers) => {
-                        // mock: log answers; integrate with backend later
                         console.log("answers:", answers);
                     }}
                 />
