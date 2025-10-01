@@ -1,0 +1,46 @@
+name: Deploy server to Liara
+
+on:
+  push:
+    branches:
+      - master   # keep your current default branch
+      - main   # uncomment if you switch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: server   # ⬅️ everything runs from ./server
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"        # or "22" if your server needs it
+
+      # If your server needs a build step, keep these:
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        if: hashFiles('server/package-lock.json') != ''
+        run: |
+          if [ -f package.json ] && jq -e '.scripts.build' package.json > /dev/null; then
+            npm run build
+          else
+            echo "No build script; skipping."
+          fi
+
+      - name: Install Liara CLI & deploy
+        env:
+          LIARA_TOKEN: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySUQiOiI2NTg1NDI0ZjAxNGQwNTg4NjY0ZWYwYzIiLCJ0eXBlIjoiYXV0aCIsImlhdCI6MTc1NTg2NTA0OH0.P6xrHBYQJlrvDynsp1Sxzbb3VcktprriP9Isyx6MHMQ   # add this in repo Settings → Secrets
+        run: |
+          npm i -g @liara/cli
+          liara deploy --api-token="$LIARA_TOKEN"
+          # If you don't use liara.json, pass flags:
+          # liara deploy --app="dove-backend" --port=3000 --api-token="$LIARA_TOKEN"
