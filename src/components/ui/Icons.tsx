@@ -1,4 +1,4 @@
-import {type FC, JSX} from "react";
+import {type FC} from "react";
 import {type IconProps} from "../../types";
 
 // --- Icon Components ---

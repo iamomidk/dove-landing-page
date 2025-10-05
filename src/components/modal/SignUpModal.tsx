@@ -1,6 +1,6 @@
-import {useEffect, useRef, useState, type FC, type FormEvent, type ChangeEvent} from "react";
-import {type SignUpModalProps} from "../../types";
-import {QuestionsDialog} from "./QuestionsDialog";
+import { useEffect, useRef, useState, type FC, type FormEvent, type ChangeEvent } from "react";
+import { type SignUpModalProps } from "../../types";
+import { QuestionsDialog } from "./QuestionsDialog";
 
 /* ------------------------------- helpers ------------------------------- */
 
@@ -20,12 +20,12 @@ function toWesternDigits(input: string): string {
 const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
 // --- API helpers ---
-const API_BASE = "https://dove-backend.liara.run"
+const API_BASE = "https://dove-backend.liara.run";
 
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
     const res = await fetch(`${API_BASE}${path}`, {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
     });
     let data: any = null;
@@ -50,7 +50,7 @@ const ModalHeader: FC<{
     titleId: string;
     subtitleId: string;
     canGoBack?: boolean;
-}> = ({onBack, title, subtitle, titleId, subtitleId, canGoBack = true}) => (
+}> = ({ onBack, title, subtitle, titleId, subtitleId, canGoBack = true }) => (
     <>
         <div className="flex justify-end items-center mb-4">
             {canGoBack && (
@@ -70,7 +70,7 @@ const ModalHeader: FC<{
 
 /* ------------------------------ component ------------------------------ */
 
-const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
+const SignUpModal: FC<SignUpModalProps> = ({ isOpen, onClose }) => {
     const [step, setStep] = useState<1 | 2>(1);
     const [termsAccepted, setTermsAccepted] = useState(false);
 
@@ -88,7 +88,8 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
 
     const step1FirstInputRef = useRef<HTMLInputElement | null>(null);
     const step2FirstInputRef = useRef<HTMLInputElement | null>(null);
-    const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+    // IMPORTANT: use number|null in browser (Vite/DOM) and window.clearInterval
+    const intervalRef = useRef<number | null>(null);
 
     // open/close lifecycle — keep coupled to isOpen
     useEffect(() => {
@@ -104,9 +105,9 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
         document.body.style.overflow = "hidden";
         return () => {
             document.body.style.overflow = prev;
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-                intervalRef.current = undefined;
+            if (intervalRef.current !== null) {
+                window.clearInterval(intervalRef.current);
+                intervalRef.current = null;
             }
         };
     }, [isOpen]);
@@ -121,14 +122,14 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
     // countdown timer — only tick while signup modal is visible AND on step 2
     useEffect(() => {
         if (!modalVisible || step !== 2) return;
-        if (intervalRef.current) clearInterval(intervalRef.current);
+        if (intervalRef.current !== null) window.clearInterval(intervalRef.current);
         intervalRef.current = window.setInterval(() => {
             setTimer((t) => (t > 0 ? t - 1 : 0));
         }, 1000);
         return () => {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-                intervalRef.current = undefined;
+            if (intervalRef.current !== null) {
+                window.clearInterval(intervalRef.current);
+                intervalRef.current = null;
             }
         };
     }, [modalVisible, step]);
@@ -150,8 +151,8 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
 
         setSubmitting(true);
         setErrorMsg(null);
-        postJSON<{ ok: true; ttl: number }>("/api/otp/send", {phone, fullName})
-            .then(({ttl}) => {
+        postJSON<{ ok: true; ttl: number }>("/api/otp/send", { phone, fullName })
+            .then(({ ttl }) => {
                 setStep(2);
                 setTimer(Number.isFinite(ttl) ? ttl : 120); // start from server TTL
             })
@@ -168,7 +169,7 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
 
         setSubmitting(true);
         setErrorMsg(null);
-        postJSON<{ ok: true }>("/api/otp/verify", {phone, code: otp})
+        postJSON<{ ok: true }>("/api/otp/verify", { phone, code: otp })
             .then(() => {
                 // ✅ open Questions and implicitly dismiss/hide the signup modal
                 setShowQuestions(true);
@@ -347,8 +348,11 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                                     >
                                         ارسال مجدد کد
                                     </button>
-                                    <button type="button" onClick={() => setStep(1)}
-                                            className="text-xs text-blue-600 hover:underline">
+                                    <button
+                                        type="button"
+                                        onClick={() => setStep(1)}
+                                        className="text-xs text-blue-600 hover:underline"
+                                    >
                                         شماره موبایل اشتباه است؟
                                     </button>
                                 </div>

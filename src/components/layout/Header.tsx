@@ -1,5 +1,5 @@
-import {useEffect, useRef, useState, type FC, JSX} from "react";
-import {MenuIcon, CloseIcon, HeaderLogo} from "../ui/Icons.tsx";
+import {useEffect, useRef, useState, type FC} from "react";
+import {MenuIcon, CloseIcon, HeaderLogo} from "../ui/Icons";
 
 const NAV_ITEMS = [
     {href: "/", label: "خانه"},

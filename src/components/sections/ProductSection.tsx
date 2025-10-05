@@ -1,6 +1,6 @@
 import type {FC} from "react";
 import type {ProductSectionProps} from "../../types";
-import {ProductCard} from "../ui/ProductCard.tsx";
+import {ProductCard} from "../ui/ProductCard";
 
 export const ProductSection: FC<ProductSectionProps> = ({products}) => (
     <section className="bg-gray-100 py-16 px-4 mt-4">

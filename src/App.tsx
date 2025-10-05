@@ -1,13 +1,13 @@
 import { useState, type FC } from "react";
-import GlobalStyles from "./styles/GlobaleStyles.tsx";
-import { Header as TopBar } from "./components/layout/Header.tsx";
-import { VideoSection } from "./components/sections/VideoSection.tsx";
-import { HeroSection } from "./components/sections/HeroSection.tsx";
-import { CtaSection } from "./components/sections/CtaSection.tsx";
-import { ProductSection } from "./components/sections/ProductSection.tsx";
+import GlobalStyles from "./styles/GlobaleStyles";
+import { Header as TopBar } from "./components/layout/Header";
+import { VideoSection } from "./components/sections/VideoSection";
+import { HeroSection } from "./components/sections/HeroSection";
+import { CtaSection } from "./components/sections/CtaSection";
+import { ProductSection } from "./components/sections/ProductSection";
 import { products } from "./constants";
-import SignUpModal from "./components/modal/SignUpModal.tsx";
-import { Footer } from "./components/layout/Footer.tsx";
+import SignUpModal from "./components/modal/SignUpModal";
+import { Footer } from "./components/layout/Footer";
 
 const App: FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);

@@ -1,308 +1,172 @@
-import {useEffect, useMemo, useRef, useState, type FC} from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FC, type FormEvent } from "react";
 
-/* ------------------------------- types & data ------------------------------ */
-
-type Question = {
-    id: string;
-    title: string;
-    options: { id: string; label: string }[];
-    required?: boolean;
-};
-
-type QuestionsDialogProps = {
+export type QuestionsDialogProps = {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit?: (answers: Record<string, string>) => void;
-    /**
-     * Optional: If you pass your own questions, the component will still apply
-     * the same branching (q1 -> q2_true/q2_false -> q3) IF your ids match:
-     * q1, q2_true, q2_false, q3. Otherwise it falls back to the built-in flow.
-     */
-    questions?: Question[];
+    onSubmit: (answers: Record<string, string>) => void;
 };
 
-/* --------------------------------- helpers -------------------------------- */
+type Answers = Record<string, string>;
 
-const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
+export const QuestionsDialog: FC<QuestionsDialogProps> = ({ isOpen, onClose, onSubmit }) => {
+    const titleId = "questions-dialog-title";
+    const descId = "questions-dialog-desc";
 
-function toPersianDigits(input: string | number): string {
-    return String(input).replace(/[0-9]/g, d => persianDigits[Number(d)]);
-}
+    const [answers, setAnswers] = useState<Answers>({});
+    const firstFieldRef = useRef<HTMLInputElement | null>(null);
 
-/* ----------------------- default branching questions ----------------------- */
-
-const BUILTIN_QUESTIONS: Record<string, Question> = {
-    q1: {
-        id: "q1",
-        title: "رنگ یا دکلره",
-        options: [
-            {id: "o1", label: "آره"},
-            {id: "o2", label: "نه"},
-        ],
-        required: true,
-    },
-    q2_true: {
-        id: "q2_true",
-        title: "هدف اصلی مراقبت از موهات چیه؟",
-        options: [
-            {id: "o1", label: "ترمیم موهای آسیب دیده "},
-            {id: "o2", label: "تقویتاستحکام تار  موها"},
-            {id: "o3", label: "حفظ رطوبت موها"},
-            {id: "o4", label: "حفظ شفافیت رنگ موها، ترمیم آسیب دیدگی مو یا جلوگیری از  آسیب ناشی از رنگ شدگی موها"},
-            {id: "o5", label: "تمیزی چربی کف سر و ساقه مو"},
-        ],
-        required: true,
-    },
-    q2_false: {
-        id: "q2_false",
-        title: "حالت و نوع موهات رو به صورت کلی انتخاب کن",
-        options: [
-            {id: "o1", label: "چرب و سبک"},
-            {id: "o2", label: "خشک و وز"},
-            {id: "o3", label: "نازک و شکننده"},
-            {id: "o4", label: "معمولی"},
-        ],
-        required: true,
-    },
-    q3: {
-        id: "q3",
-        title: "بزرگ‌ترین مشکلت با موهات چیه؟",
-        options: [
-            {id: "o1", label: "وز و خشک بودن "},
-            {id: "o2", label: "ریزش از ساقه داره و شکننده بودن"},
-            {id: "o3", label: "چرب شدن سریع"},
-            {id: "o4", label: "نیاز به حفظ رطوبت"},
-        ],
-        required: true,
-    },
-};
-
-/* ------------------------------- component -------------------------------- */
-
-export const QuestionsDialog: FC<QuestionsDialogProps> = ({
-                                                              isOpen,
-                                                              onClose,
-                                                              onSubmit,
-                                                              questions,
-                                                          }) => {
-    /**
-     * If custom questions are passed and they use the same ids (q1, q2_true, q2_false, q3),
-     * they’ll be used; otherwise we fall back to BUILTIN_QUESTIONS.
-     */
-    const BANK = useMemo(() => {
-        if (!questions?.length) return BUILTIN_QUESTIONS;
-
-        const byId: Record<string, Question> = {};
-        for (const q of questions) byId[q.id] = q;
-
-        const hasAllIds = ["q1", "q2_true", "q2_false", "q3"].every(id => byId[id]);
-        return hasAllIds ? byId : BUILTIN_QUESTIONS;
-    }, [questions]);
-
-    // answers keyed by question id → option id
-    const [answers, setAnswers] = useState<Record<string, string>>({});
-    const [step, setStep] = useState(0);
-
-    const dialogRootRef = useRef<HTMLDivElement | null>(null);
-    const cardRef = useRef<HTMLDivElement | null>(null);
-
-    /* ------------------------------ lifecycle -------------------------------- */
-
-    // lock scroll
+    // Focus the first field when opened
     useEffect(() => {
         if (!isOpen) return;
-        const prev = document.body.style.overflow;
-        document.body.style.overflow = "hidden";
-        return () => {
-            document.body.style.overflow = prev;
-        };
+        const t = setTimeout(() => firstFieldRef.current?.focus(), 0);
+        return () => clearTimeout(t);
     }, [isOpen]);
 
-    // esc to close
-    useEffect(() => {
-        if (!isOpen) return;
-        const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
-    }, [isOpen, onClose]);
-
-    // focus trap
-    useEffect(() => {
-        if (!isOpen) return;
-        const root = cardRef.current;
-        if (!root) return;
-
-        const getFocusable = () =>
-            Array.from(
-                root.querySelectorAll<HTMLElement>(
-                    'a[href], button:not([disabled]), input, [tabindex]:not([tabindex="-1"])'
-                )
-            ).filter(el => !el.hasAttribute("disabled"));
-
-        // focus first element
-        const firstEl = getFocusable()[0];
-        firstEl?.focus();
-
-        const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key !== "Tab") return;
-            const focusables = getFocusable();
-            if (!focusables.length) return;
-            const first = focusables[0];
-            const last = focusables[focusables.length - 1];
-            const active = document.activeElement as HTMLElement | null;
-
-            if (!e.shiftKey && active === last) {
-                e.preventDefault();
-                first.focus();
-            } else if (e.shiftKey && active === first) {
-                e.preventDefault();
-                last.focus();
-            }
-        };
-
-        root.addEventListener("keydown", onKeyDown);
-        return () => root.removeEventListener("keydown", onKeyDown);
-    }, [isOpen, step]);
-
-    /* --------------------------------- logic --------------------------------- */
-
-    // Build the dynamic sequence based on answers so far
-    const sequence: Question[] = useMemo(() => {
-        const s: Question[] = [];
-        s.push(BANK.q1);
-
-        const q1Val = answers["q1"];
-        if (q1Val === "o1") {
-            // آره → فقط q2_true (بدون q3)
-            s.push(BANK.q2_true);
-        } else if (q1Val === "o2") {
-            // نه → q2_false سپس q3
-            s.push(BANK.q2_false);
-            s.push(BANK.q3);
-        }
-
-        return s;
-    }, [answers, BANK]);
-
-    const total = sequence.length;
-    const current = sequence[Math.min(step, total - 1)];
-    const currentValue = current ? answers[current.id] : undefined;
-
-    const canNext = current?.required ? Boolean(currentValue) : true;
-
-    const selectAnswer = (qid: string, oid: string) =>
-        setAnswers(prev => {
-            // If user changes q1, clear the opposite branch answers
-            if (qid === "q1" && prev[qid] !== oid) {
-                const next = {...prev, [qid]: oid};
-                delete next["q2_true"];
-                delete next["q2_false"];
-                // Also guard step in case sequence shrinks
-                // (handled below by effect watching sequence)
-                return next;
-            }
-            return {...prev, [qid]: oid};
-        });
-
-    const goPrev = () => setStep(s => Math.max(0, s - 1));
-    const goNext = () => canNext && setStep(s => Math.min(total - 1, s + 1));
-    const finish = () => {
-        if (!canNext) return;
-        onSubmit?.(answers);
-        onClose();
+    // Utility: always store string values
+    const setAnswer = (key: string, value: unknown) => {
+        setAnswers((prev) => ({ ...prev, [key]: String(value ?? "") }));
     };
 
-    // If sequence shrank (because q1 changed), keep step in bounds
-    useEffect(() => {
-        setStep(s => Math.min(s, Math.max(0, sequence.length - 1)));
-    }, [sequence.length]);
+    // Handlers
+    const handleText = (key: string) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+        setAnswer(key, e.target.value);
+
+    const handleRadio = (key: string) => (e: ChangeEvent<HTMLInputElement>) => setAnswer(key, e.target.value);
+
+    const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        onSubmit(answers);
+    };
+
+    // Derived convenience reads
+    const q1 = answers["q1"] ?? "";
+    const q2 = answers["q2"] ?? ""; // "true" | "false" (as strings)
+    const q2_true = answers["q2_true"] ?? "";
+    const q2_false = answers["q2_false"] ?? "";
 
     if (!isOpen) return null;
 
-    /* ---------------------------------- UI ----------------------------------- */
-
     return (
         <div
-            ref={dialogRootRef}
-            className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="questions-modal-title"
-            onMouseDown={(e) => {
-                if (e.target === e.currentTarget) onClose();
-            }}
+            aria-labelledby={titleId}
+            aria-describedby={descId}
+            onClick={onClose}
         >
             <div
-                ref={cardRef}
-                className="bg-white shadow-2xl w-full max-w-sm mx-auto rounded-none"
-                onMouseDown={(e) => e.stopPropagation()}
+                className="w-full max-w-lg bg-white shadow-2xl rounded-md overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
             >
-                {/* header — mirrors SignUpModal style */}
-                <div className="flex justify-end items-center px-6 pt-6">
-                    <button
-                        onClick={step === 0 ? onClose : goPrev}
-                        className="text-sm text-gray-500 hover:text-gray-800 flex items-center"
-                        aria-label="بستن"
-                    >
-                        {step === 0 ? "بستن" : "قبلی"}
-                    </button>
-                </div>
+                <header className="px-6 pt-5 pb-3 border-b">
+                    <h2 id={titleId} className="text-lg font-bold text-gray-900">
+                        پاسخ به سوالات
+                    </h2>
+                    <p id={descId} className="text-sm text-gray-500 mt-1">
+                        لطفا به چند سوال کوتاه پاسخ دهید.
+                    </p>
+                </header>
 
-                {/* subtitle / progress */}
-                <div className="px-6 mt-2 mb-4">
-                    <p className="text-lg font-bold text-brand-blue">{toPersianDigits(step + 1)}.</p>
-                </div>
+                <form onSubmit={handleSubmit} className="px-6 py-4 space-y-6">
+                    {/* Q1 */}
+                    <div>
+                        <label htmlFor="q1" className="block text-sm font-medium text-gray-700 mb-1">
+                            سوال ۱: نام شما چیست؟
+                        </label>
+                        <input
+                            ref={firstFieldRef}
+                            id="q1"
+                            name="q1"
+                            type="text"
+                            className="w-full border-b-2 border-gray-300 px-3 py-2 focus:outline-none focus:border-blue-600"
+                            value={q1}
+                            onChange={handleText("q1")}
+                            required
+                        />
+                    </div>
 
-                {/* body */}
-                <div className="px-6 pb-2">
-                    <p className="mb-4 font-bold text-brand-blue">{current.title}</p>
-
-                    <fieldset className="space-y-2" aria-label={current.title}>
-                        {current.options.map(opt => {
-                            const checked = currentValue === opt.id;
-                            return (
-                                <label
-                                    key={opt.id}
-                                    className={`flex items-center rounded-xl px-4 py-3 cursor-pointer transition border
-                    ${checked ? "border-[#003366] bg-[#003366]/5" : "border-gray-200 hover:border-gray-300"}`}
-                                >
-                                    <input
-                                        type="radio"
-                                        name={current.id}
-                                        value={opt.id}
-                                        checked={checked}
-                                        onChange={() => selectAnswer(current.id, opt.id)}
-                                        className="accent-[#003366]"
-                                    />
-                                    <span className="text-sm text-gray-800 mr-4">{opt.label}</span>
-                                </label>
-                            );
-                        })}
+                    {/* Q2: yes/no */}
+                    <fieldset>
+                        <legend className="block text-sm font-medium text-gray-700 mb-2">
+                            سوال ۲: آیا از محصولات داو استفاده کرده‌اید؟
+                        </legend>
+                        <div className="flex items-center gap-6">
+                            <label className="flex items-center gap-2 text-sm text-gray-700">
+                                <input
+                                    type="radio"
+                                    name="q2"
+                                    value="true"
+                                    checked={q2 === "true"}
+                                    onChange={handleRadio("q2")}
+                                />
+                                بله
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-gray-700">
+                                <input
+                                    type="radio"
+                                    name="q2"
+                                    value="false"
+                                    checked={q2 === "false"}
+                                    onChange={handleRadio("q2")}
+                                />
+                                خیر
+                            </label>
+                        </div>
                     </fieldset>
-                </div>
 
-                {/* footer buttons — mirrors SignUpModal buttons */}
-                <div className="px-6 py-5 flex items-center justify-between w-full">
-                    {step < total - 1 ? (
+                    {/* Conditional detail for Q2 */}
+                    {q2 === "true" && (
+                        <div>
+                            <label htmlFor="q2_true" className="block text-sm font-medium text-gray-700 mb-1">
+                                اگر بله، کدام محصول و چه مدت؟
+                            </label>
+                            <input
+                                id="q2_true"
+                                name="q2_true"
+                                type="text"
+                                className="w-full border-b-2 border-gray-300 px-3 py-2 focus:outline-none focus:border-blue-600"
+                                value={q2_true}
+                                onChange={handleText("q2_true")}
+                                placeholder="مثلا: شامپو داو، ۶ ماه"
+                            />
+                        </div>
+                    )}
+
+                    {q2 === "false" && (
+                        <div>
+                            <label htmlFor="q2_false" className="block text-sm font-medium text-gray-700 mb-1">
+                                اگر خیر، دلیل خاصی دارد؟
+                            </label>
+                            <input
+                                id="q2_false"
+                                name="q2_false"
+                                type="text"
+                                className="w-full border-b-2 border-gray-300 px-3 py-2 focus:outline-none focus:border-blue-600"
+                                value={q2_false}
+                                onChange={handleText("q2_false")}
+                                placeholder="مثلا: در دسترس نبودن فروشگاه"
+                            />
+                        </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-end gap-3 pt-2">
                         <button
                             type="button"
-                            onClick={goNext}
-                            disabled={!canNext}
-                            className="w-full brand-blue text-white font-bold py-3  px-4 disabled:opacity-50"
+                            onClick={onClose}
+                            className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
                         >
-                            بعدی
+                            انصراف
                         </button>
-                    ) : (
                         <button
-                            type="button"
-                            onClick={finish}
-                            disabled={!canNext}
-                            className="w-full brand-blue text-white font-bold py-3  px-4 disabled:opacity-50"
+                            type="submit"
+                            className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700"
                         >
                             ثبت پاسخ‌ها
                         </button>
-                    )}
-                </div>
+                    </div>
+                </form>
             </div>
         </div>
     );

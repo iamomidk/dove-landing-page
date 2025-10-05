@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState, type FC} from "react";
-import {CopyLogo} from "../ui/Icons.tsx";
+import {CopyLogo} from "../ui/Icons";
 
 type DiscountCodeModalProps = {
     isOpen: boolean;

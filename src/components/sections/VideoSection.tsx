@@ -1,4 +1,4 @@
-import { type FC, useEffect, useRef, useState } from "react";
+import {type FC, useEffect, useRef, useState} from "react";
 
 export const VideoSection: FC = () => {
     const [open, setOpen] = useState(false);
@@ -23,13 +23,17 @@ export const VideoSection: FC = () => {
         const original = document.body.style.overflow;
         if (open) document.body.style.overflow = "hidden";
         else document.body.style.overflow = original;
-        return () => { document.body.style.overflow = original; };
+        return () => {
+            document.body.style.overflow = original;
+        };
     }, [open]);
 
     // Close on ESC
     useEffect(() => {
         if (!open) return;
-        const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") close(); };
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") close();
+        };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
     }, [open]);
@@ -56,11 +60,20 @@ export const VideoSection: FC = () => {
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key !== "Tab") return;
             const current = document.activeElement as HTMLElement | null;
-            if (!current) { e.preventDefault(); first?.focus(); return; }
+            if (!current) {
+                e.preventDefault();
+                first?.focus();
+                return;
+            }
             if (!root.contains(current)) return;
 
-            if (!e.shiftKey && current === last) { e.preventDefault(); first?.focus(); }
-            else if (e.shiftKey && current === first) { e.preventDefault(); last?.focus(); }
+            if (!e.shiftKey && current === last) {
+                e.preventDefault();
+                first?.focus();
+            } else if (e.shiftKey && current === first) {
+                e.preventDefault();
+                last?.focus();
+            }
         };
 
         root.addEventListener("keydown", onKeyDown);
@@ -78,7 +91,7 @@ export const VideoSection: FC = () => {
         setLoading(true);
         setSignedUrl(null);
 
-        const params = new URLSearchParams({ key: "input.mp4" }); // change object key if needed
+        const params = new URLSearchParams({key: "input.mp4"}); // change object key if needed
         fetch(`https://dove-backend.liara.run/api/video-url?${params.toString()}`)
             .then(async (r) => {
                 if (!r.ok) throw new Error("failed to get signed url");
@@ -94,7 +107,9 @@ export const VideoSection: FC = () => {
                 if (!cancelled) setLoading(false);
             });
 
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, [open]);
 
     // Pause and release src when closing
@@ -107,11 +122,10 @@ export const VideoSection: FC = () => {
                 v.removeAttribute("src");
                 v.load();
             }
-        } catch {}
+        } catch {
+        }
         setSignedUrl(null);
     }, [open]);
-
-    const poster = "/videos/poster.jpg"; // optional; replace with your poster
 
     return (
         <section id="video" className="scroll-section">
@@ -132,11 +146,11 @@ export const VideoSection: FC = () => {
                     aria-label="پخش ویدیو"
                     aria-haspopup="dialog"
                     aria-controls="dove-video-dialog"
-                    style={{ aspectRatio: "1 / 1" }}
+                    style={{aspectRatio: "1 / 1"}}
                 >
                     <svg viewBox="0 0 24 24" className="h-10 w-10" aria-hidden="true">
-                        <circle cx="12" cy="12" r="12" fill="currentColor" opacity="0.15" />
-                        <path d="M9 7l8 5-8 5V7z" fill="currentColor" />
+                        <circle cx="12" cy="12" r="12" fill="currentColor" opacity="0.15"/>
+                        <path d="M9 7l8 5-8 5V7z" fill="currentColor"/>
                     </svg>
                 </button>
             </div>
@@ -151,10 +165,12 @@ export const VideoSection: FC = () => {
                     aria-labelledby="dove-video-title"
                     aria-describedby="dove-video-desc"
                     className="fixed inset-0 z-50 flex items-center justify-center"
-                    onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}
+                    onMouseDown={(e) => {
+                        if (e.target === e.currentTarget) close();
+                    }}
                 >
                     {/* Backdrop */}
-                    <div className="absolute inset-0 bg-black/80" />
+                    <div className="absolute inset-0 bg-black/80"/>
 
                     {/* Dialog content */}
                     <div className="relative z-10 w-full h-full">
@@ -169,7 +185,6 @@ export const VideoSection: FC = () => {
                                 muted
                                 controls
                                 autoPlay={!prefersReducedMotion}
-                                poster={poster}
                                 preload="metadata"
                                 src={signedUrl}
                             />
@@ -183,7 +198,7 @@ export const VideoSection: FC = () => {
                         <button
                             type="button"
                             onClick={close}
-                            className="absolute top-4 right-4 h-12 w-12 rounded-full bg-[#003366] text-white flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white mt-16"
+                            className="absolute top-4 right-4 h-12 w-12 text-white flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white mt-16"
                             aria-label="بستن ویدیو"
                         >
                             <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">

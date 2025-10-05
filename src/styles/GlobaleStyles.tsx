@@ -1,4 +1,4 @@
-import {type FC, type JSX} from "react";
+import {type FC} from "react";
 
 const GlobalStyles: FC = () => (
     <style>{`
@@ -207,14 +207,6 @@ const GlobalStyles: FC = () => (
     /* Responsive video */
     .video-responsive-container { position: relative; overflow: hidden; width: 100%; padding-top: 56.25%; }
     .video-responsive-iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
-
-    /* Concave top section */
-    .concave-top { position: relative; background-color: #003366; overflow: hidden; }
-    .concave-top::before {
-      content: ''; position: absolute; top: -40px; left: 50%;
-      transform: translateX(-50%); width: 150%; height: 80px;
-      border-radius: 50%; box-shadow: 0 0 0 1000000px #003366;
-    }
 
     /* ✅ Accessibility polish */
     button:focus-visible {
