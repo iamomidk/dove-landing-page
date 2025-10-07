@@ -1,8 +1,8 @@
-import { useState, type FC } from "react";
-import { RetailerLink } from "../ui/RetailerLink";
-import { ArrowLeft, InstagramIcon, PhoneIcon } from "../ui/Icons";
+import {useState, type FC} from "react";
+import {RetailerLink} from "../ui/RetailerLink";
+import {ArrowLeft, InstagramIcon, PhoneIcon} from "../ui/Icons";
 import DiscountCodeModal from "../modal/DiscountCodeModal";
-import type { RetailerId } from "../../types"; // <- ensures prop types align with RetailerLink
+import type {RetailerId} from "../../types";
 
 type ModalState = {
     open: boolean;
@@ -34,7 +34,6 @@ export const Footer: FC = () => {
         continueUrl: "",
     });
 
-    // ✅ Single, explicitly typed map that can be indexed by any RetailerId
     const retailerMap: Partial<Record<RetailerId, RetailerCfg>> = {
         okala: {
             logoSrc: "/okala_logo.png",
@@ -42,7 +41,8 @@ export const Footer: FC = () => {
             code: "110605",
             title: "کد تخفیف",
             description:
-                "با وارد کردن لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ، و با استفاده از طراحان گرافیک است، چاپگرها و متون بلکه روزنامه و مجله در ستون و سطرآنچنان که لازم است، و برای شرایط فعلی تکنولوژی مورد نیاز می باشد.",
+                "با استفاده از کد تخفیف زیر می‌توانید محصولات داو را با ٪… تخفیف ویژه تهیه کنید.\n" +
+                "کافی‌ست کد را کپی کرده و از طریق لینک زیر خرید خود را انجام دهید",
             continueUrl: "https://www.okala.com/offer/110605",
         },
         snapp: {
@@ -51,26 +51,16 @@ export const Footer: FC = () => {
             code: "qtrk",
             title: "کد تخفیف",
             description:
-                "با وارد کردن لورم ایپسوم متن ساختگی با تولید سادگی نامفهوم از صنعت چاپ، و با استفاده از طراحان گرافیک است، چاپگرها و متون بلکه روزنامه و مجله در ستون و سطرآنچنان که لازم است، و برای شرایط فعلی تکنولوژی مورد نیاز می باشد.",
+                "با استفاده از کد تخفیف زیر می‌توانید محصولات داو را با ٪… تخفیف ویژه تهیه کنید.\n" +
+                "کافی‌ست کد را کپی کرده و از طریق لینک زیر خرید خود را انجام دهید",
             continueUrl: "https://d.snpx.link/qtrk",
         },
-        // digikala: { ... } // add later when ready
     };
 
     const openFor = (retailer: RetailerId) => {
         const cfg = retailerMap[retailer];
 
         if (!cfg) {
-            // Fallback for unsupported retailers (e.g., digikala for now)
-            setModal({
-                open: true,
-                code: "",
-                logoSrc: "/digikala_logo.png",
-                accent: "#ED1944",
-                title: "به‌زودی",
-                description: "کد تخفیف این فروشگاه به زودی اضافه می‌شود.",
-                continueUrl: "",
-            });
             return;
         }
 
@@ -83,6 +73,12 @@ export const Footer: FC = () => {
             description: cfg.description,
             continueUrl: cfg.continueUrl,
         });
+    };
+
+    // ---------------- Scroll Handler ----------------
+    const scrollToSection = (id: string) => {
+        const el = document.getElementById(id);
+        if (el) el.scrollIntoView({behavior: "smooth"});
     };
 
     return (
@@ -98,7 +94,7 @@ export const Footer: FC = () => {
                         retailer="okala"
                         imgSrc="/okala_logo.png"
                         alt="Okala Logo"
-                        href="" // keep empty to use <button>; set URL to use <a>
+                        href=""
                         borderColor="#E22533"
                         onActivate={openFor}
                         hasDiscount={true}
@@ -126,12 +122,12 @@ export const Footer: FC = () => {
                 </div>
             </div>
 
-                        {/* Bottom footer content */}
+            {/* Bottom footer content */}
             <footer className="relative w-full text-white brand-blue mt-16">
                 <img
                     src="/concave_top.svg"
                     alt="Dove Logo"
-                    className="h-auto w-full top-0"
+                    className="h-auto w-full"
                 />
                 <div className="flex-grow flex flex-col justify-center items-start pt-4 pb-4">
                     <img
@@ -144,41 +140,53 @@ export const Footer: FC = () => {
                         <p>تهران، میدان آرژانتین، خیابان زاگرس، نبش خیابان ۳۳، پلاک ۲۳ کد پستی: ۱۵۱۶۶۸۳۱۱۱</p>
                     </div>
                     <div className="flex flex-col justify-center space-y-2 mt-12 space-x-reverse opacity-80 pr-8 pl-8">
-                        <a href="/" className="flex items-center hover:opacity-100 opacity-100">
-                            <ArrowLeft />
+                        <button
+                            className="flex items-center hover:opacity-100 opacity-100"
+                            onClick={() => scrollToSection("home-section")}
+                        >
+                            <ArrowLeft/>
                             <span className="text-s px-2">خانه</span>
-                        </a>
-                        <a href="/" className="flex items-center hover:opacity-100 opacity-100">
-                            <ArrowLeft />
+                        </button>
+                        <button
+                            className="flex items-center hover:opacity-100 opacity-100"
+                            onClick={() => scrollToSection("intro-section")}
+                        >
+                            <ArrowLeft/>
                             <span className="text-s px-2">معرفی داو</span>
-                        </a>
+                        </button>
                         <a href="/" className="flex items-center hover:opacity-100 opacity-100">
-                            <PhoneIcon />
+                            <PhoneIcon/>
                             <span className="text-s px-2">پشتیبانی</span>
                         </a>
                     </div>
                     <div className="mt-6 opacity-80 pr-8 pl-8">
-                        <a href="/" className="flex items-center hover:opacity-100 opacity-100">
-                            <InstagramIcon />
+                        <a
+                            href="https://www.instagram.com/dove.iran?igsh=dXgwenp6OG1hcWt3"
+                            target={"_blank"}
+                            rel={"noopener noreferrer"}
+                            className="flex items-center hover:opacity-100 opacity-100"
+                        >
+                            <InstagramIcon/>
                             <span className="text-s px-2">اینستاگرام</span>
                         </a>
                     </div>
                     <div className="mt-12 opacity-80 pr-6 pl-6">
-                        <p className="text-xs">تمامی حقوق مادی و معنوی این وب سایت به گروه داو تعلق دارد . © 2025</p>
+                        <p className="text-xs">
+                            تمامی حقوق مادی و معنوی این وب سایت به گروه داو تعلق دارد . © 2025
+                        </p>
                     </div>
                 </div>
             </footer>
 
-            {/* Modal */}
             <DiscountCodeModal
                 isOpen={modal.open}
-                onClose={() => setModal((s) => ({ ...s, open: false }))}
+                onClose={() => setModal((s) => ({...s, open: false}))}
                 code={modal.code}
                 logoSrc={modal.logoSrc}
                 accentTopColor={modal.accent}
                 title={modal.title}
                 description={modal.description}
-                onContinue={() => setModal((s) => ({ ...s, open: false }))}
+                onContinue={() => setModal((s) => ({...s, open: false}))}
                 continueUrl={modal.continueUrl}
             />
         </section>

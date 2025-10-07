@@ -1,5 +1,3 @@
-import {list} from "postcss";
-
 export interface Product {
     imgSrc: string;
     title: string;

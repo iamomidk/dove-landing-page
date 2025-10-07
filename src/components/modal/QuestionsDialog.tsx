@@ -1,172 +1,322 @@
-import { useEffect, useRef, useState, type ChangeEvent, type FC, type FormEvent } from "react";
+import {useEffect, useMemo, useRef, useState, type FC} from "react";
+import {
+    SHAMPOO_DATA,
+    type ShampooDescription,
+    type ShampooCategory,
+    type ShampooVariant,
+} from "../../types/shampoos";
 
-export type QuestionsDialogProps = {
-    isOpen: boolean;
-    onClose: () => void;
-    onSubmit: (answers: Record<string, string>) => void;
+/* ------------------------------- types & data ------------------------------ */
+
+type Question = {
+    id: string;
+    title: string;
+    options: { id: ShampooCategory | "yes" | "no"; label: string }[]; // enforce shampoo categories here
+    required?: boolean;
 };
 
-type Answers = Record<string, string>;
+type QuestionsDialogProps = {
+    isOpen: boolean;
+    onClose: () => void;
+    onSubmit?: (answers: Record<string, string>) => void;
+    questions?: Question[];
+};
 
-export const QuestionsDialog: FC<QuestionsDialogProps> = ({ isOpen, onClose, onSubmit }) => {
-    const titleId = "questions-dialog-title";
-    const descId = "questions-dialog-desc";
+/* ------------------------------- helpers --------------------------------- */
 
-    const [answers, setAnswers] = useState<Answers>({});
-    const firstFieldRef = useRef<HTMLInputElement | null>(null);
+const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
 
-    // Focus the first field when opened
+function toPersianDigits(input: string | number): string {
+    return String(input).replace(/[0-9]/g, (d) => persianDigits[Number(d)]);
+}
+
+/* --------------------------- shampoo logic --------------------------- */
+
+function calculateShampoos(
+    answers: Record<string, string>
+): { main: ShampooCategory; combo?: ShampooCategory } {
+    const color = answers["color"];
+    if (color === "yes") {
+        const goal = answers["colorGoal"] as ShampooCategory;
+        return {
+            main: "color_vibrancy",
+            combo: goal !== "color_vibrancy" ? goal : undefined,
+        };
+    } else {
+        const type = answers["hairType"] as ShampooCategory;
+        const problem = answers["hairProblem"] as ShampooCategory | undefined;
+        if (type === problem || !problem) return {main: type};
+        return {main: type, combo: problem};
+    }
+}
+
+/* ------------------------------- component -------------------------------- */
+
+export const QuestionsDialog: FC<QuestionsDialogProps> = ({
+                                                              isOpen,
+                                                              onClose,
+                                                              onSubmit,
+                                                              questions,
+                                                          }) => {
+    const DEFAULT_QUESTIONS: Question[] = useMemo(
+        () => [
+            {
+                id: "color",
+                title: "رنگ یا دکلره کرده‌ای؟",
+                options: [
+                    {id: "yes", label: "آره"},
+                    {id: "no", label: "نه"},
+                ],
+                required: true,
+            },
+            {
+                id: "colorGoal",
+                title: "هدف اصلی مراقبت از موهات چیه؟",
+                options: [
+                    {id: "intensive_repair", label: "ترمیم موهای آسیب دیده"},
+                    {id: "hair_fall_rescue", label: "تقویت استحکام تار موها"},
+                    {id: "daily_moisture", label: "حفظ رطوبت موها"},
+                    {id: "color_vibrancy", label: "حفظ شفافیت رنگ موها"},
+                    {id: "purifying", label: "تمیزی چربی کف سر و ساقه مو"},
+                ],
+            },
+            {
+                id: "hairType",
+                title: "حالت و نوع موهات رو انتخاب کن",
+                options: [
+                    {id: "purifying", label: "چرب و سبک"},
+                    {id: "intensive_repair", label: "خشک و وز"},
+                    {id: "hair_fall_rescue", label: "نازک و شکننده"},
+                    {id: "daily_moisture", label: "معمولی"},
+                ],
+            },
+            {
+                id: "hairProblem",
+                title: "بزرگترین مشکلت با موهات چیه؟",
+                options: [
+                    {id: "intensive_repair", label: "وز و خشک بودن"},
+                    {id: "hair_fall_rescue", label: "ریزش و شکنندگی"},
+                    {id: "purifying", label: "چرب شدن سریع"},
+                    {id: "daily_moisture", label: "نیاز به حفظ رطوبت"},
+                ],
+            },
+        ],
+        []
+    );
+
+    const data = questions && questions.length ? questions : DEFAULT_QUESTIONS;
+
+    const [step, setStep] = useState(0);
+    const [answers, setAnswers] = useState<Record<string, string>>({});
+    const [resultKey, setResultKey] = useState<
+        { main: ShampooCategory; combo?: ShampooCategory } | null
+    >(null);
+
+    const dialogRootRef = useRef<HTMLDivElement | null>(null);
+    const cardRef = useRef<HTMLDivElement | null>(null);
+
+    /* ---------------------- lifecycle ---------------------- */
+
     useEffect(() => {
         if (!isOpen) return;
-        const t = setTimeout(() => firstFieldRef.current?.focus(), 0);
-        return () => clearTimeout(t);
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => {
+            document.body.style.overflow = prev;
+        };
     }, [isOpen]);
 
-    // Utility: always store string values
-    const setAnswer = (key: string, value: unknown) => {
-        setAnswers((prev) => ({ ...prev, [key]: String(value ?? "") }));
+    useEffect(() => {
+        if (!isOpen) return;
+        const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [isOpen, onClose]);
+
+    /* ---------------------- logic ---------------------- */
+
+    const current = data[step];
+    const currentValue = answers[current.id];
+    const canNext = current.required ? Boolean(currentValue) : true;
+
+    const selectAnswer = (qid: string, oid: string) =>
+        setAnswers((prev) => ({...prev, [qid]: oid}));
+
+    const goPrev = () => setStep((s) => Math.max(0, s - 1));
+
+    const goNext = () => {
+        if (!canNext) return;
+
+        if (current.id === "color" && currentValue === "yes") {
+            setStep(1); // jump to colorGoal
+        } else if (current.id === "colorGoal" && answers["color"] === "yes") {
+            finish();
+        } else if (step < data.length - 1) {
+            setStep((s) => s + 1);
+        }
     };
 
-    // Handlers
-    const handleText = (key: string) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-        setAnswer(key, e.target.value);
-
-    const handleRadio = (key: string) => (e: ChangeEvent<HTMLInputElement>) => setAnswer(key, e.target.value);
-
-    const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        onSubmit(answers);
+    const finish = () => {
+        if (!canNext) return;
+        const {main, combo} = calculateShampoos(answers);
+        setResultKey({main, combo});
+        onSubmit?.(answers);
     };
-
-    // Derived convenience reads
-    const q1 = answers["q1"] ?? "";
-    const q2 = answers["q2"] ?? ""; // "true" | "false" (as strings)
-    const q2_true = answers["q2_true"] ?? "";
-    const q2_false = answers["q2_false"] ?? "";
 
     if (!isOpen) return null;
 
+    /* ----------------------------- helpers ----------------------------- */
+
+    const getDescriptions = (): ShampooDescription[] => {
+        if (!resultKey) return [];
+        const shampoo: ShampooVariant =
+            resultKey.combo
+                ? SHAMPOO_DATA[resultKey.main][resultKey.combo]!
+                : SHAMPOO_DATA[resultKey.main].default;
+
+        return shampoo.descriptions;
+    };
+
+    /* ----------------------------- UI ----------------------------- */
+
     return (
         <div
-            className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
+            ref={dialogRootRef}
+            className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50"
             role="dialog"
             aria-modal="true"
-            aria-labelledby={titleId}
-            aria-describedby={descId}
-            onClick={onClose}
+            aria-labelledby="questions-modal-title"
+            onMouseDown={(e) => e.target === e.currentTarget && onClose()}
         >
             <div
-                className="w-full max-w-lg bg-white shadow-2xl rounded-md overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
+                ref={cardRef}
+                className="bg-white shadow-2xl w-full max-w-sm mx-auto rounded-none"
+                onMouseDown={(e) => e.stopPropagation()}
             >
-                <header className="px-6 pt-5 pb-3 border-b">
-                    <h2 id={titleId} className="text-lg font-bold text-gray-900">
-                        پاسخ به سوالات
-                    </h2>
-                    <p id={descId} className="text-sm text-gray-500 mt-1">
-                        لطفا به چند سوال کوتاه پاسخ دهید.
-                    </p>
-                </header>
+                <div className="px-6 pb-2">
+                    {!resultKey ? (
+                        /* ---- Question Flow ---- */
+                        <>
+                            {/* Navigation */}
+                            <div className="flex justify-end items-center px-6 pt-6">
+                                <button
+                                    onClick={step === 0 ? onClose : goPrev}
+                                    className="text-sm text-gray-500 hover:text-gray-800 flex items-center"
+                                    aria-label="بستن"
+                                >
+                                    {step === 0 ? "بستن" : "قبلی"}
+                                </button>
+                            </div>
 
-                <form onSubmit={handleSubmit} className="px-6 py-4 space-y-6">
-                    {/* Q1 */}
-                    <div>
-                        <label htmlFor="q1" className="block text-sm font-medium text-gray-700 mb-1">
-                            سوال ۱: نام شما چیست؟
-                        </label>
-                        <input
-                            ref={firstFieldRef}
-                            id="q1"
-                            name="q1"
-                            type="text"
-                            className="w-full border-b-2 border-gray-300 px-3 py-2 focus:outline-none focus:border-blue-600"
-                            value={q1}
-                            onChange={handleText("q1")}
-                            required
-                        />
-                    </div>
+                            {/* Step Indicator */}
+                            <div className="px-6 mt-2 mb-4">
+                                <p className="text-lg font-bold text-brand-blue">
+                                    {toPersianDigits(step + 1)}.
+                                </p>
+                            </div>
 
-                    {/* Q2: yes/no */}
-                    <fieldset>
-                        <legend className="block text-sm font-medium text-gray-700 mb-2">
-                            سوال ۲: آیا از محصولات داو استفاده کرده‌اید؟
-                        </legend>
-                        <div className="flex items-center gap-6">
-                            <label className="flex items-center gap-2 text-sm text-gray-700">
-                                <input
-                                    type="radio"
-                                    name="q2"
-                                    value="true"
-                                    checked={q2 === "true"}
-                                    onChange={handleRadio("q2")}
-                                />
-                                بله
-                            </label>
-                            <label className="flex items-center gap-2 text-sm text-gray-700">
-                                <input
-                                    type="radio"
-                                    name="q2"
-                                    value="false"
-                                    checked={q2 === "false"}
-                                    onChange={handleRadio("q2")}
-                                />
-                                خیر
-                            </label>
-                        </div>
-                    </fieldset>
+                            {/* Question */}
+                            <p className="mb-4 font-bold text-brand-blue">{current.title}</p>
+                            <fieldset className="space-y-2" aria-label={current.title}>
+                                {current.options.map((opt) => {
+                                    const checked = currentValue === opt.id;
+                                    return (
+                                        <label
+                                            key={opt.id}
+                                            className={`flex items-center rounded-xl px-4 py-3 cursor-pointer transition
+                      ${
+                                                checked
+                                                    ? "border-[#003366] bg-[#003366]/5"
+                                                    : "border-gray-200 hover:border-gray-300"
+                                            }`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name={current.id}
+                                                value={opt.id}
+                                                checked={checked}
+                                                onChange={() => selectAnswer(current.id, opt.id)}
+                                                className="accent-[#003366]"
+                                            />
+                                            <span className="text-sm text-gray-800 mr-4">
+                        {opt.label}
+                      </span>
+                                        </label>
+                                    );
+                                })}
+                            </fieldset>
+                        </>
+                    ) : (
+                        /* ---- Result ---- */
+                        <div className="text-center py-4">
+                            <div className="flex justify-end items-center">
+                                <button
+                                    onClick={onClose}
+                                    className="text-sm text-gray-500 hover:text-gray-800 flex items-center"
+                                    aria-label="بستن"
+                                >
+                                    بستن
+                                </button>
+                            </div>
 
-                    {/* Conditional detail for Q2 */}
-                    {q2 === "true" && (
-                        <div>
-                            <label htmlFor="q2_true" className="block text-sm font-medium text-gray-700 mb-1">
-                                اگر بله، کدام محصول و چه مدت؟
-                            </label>
-                            <input
-                                id="q2_true"
-                                name="q2_true"
-                                type="text"
-                                className="w-full border-b-2 border-gray-300 px-3 py-2 focus:outline-none focus:border-blue-600"
-                                value={q2_true}
-                                onChange={handleText("q2_true")}
-                                placeholder="مثلا: شامپو داو، ۶ ماه"
+                            <img
+                                src={
+                                    resultKey.combo
+                                        ? SHAMPOO_DATA[resultKey.main][resultKey.combo]!.image
+                                        : SHAMPOO_DATA[resultKey.main].default.image
+                                }
+                                alt={resultKey.main}
+                                className="w-full h-56 object-contain mb-4"
                             />
+
+                            <h3 className="text-right font-bold py-8 text-[#797776]">
+                                شامپوی مناسب موهای شما
+                            </h3>
+
+                            {getDescriptions().map((desc, i) => (
+                                <div
+                                    key={i}
+                                    className="mb-4 text-justify pr-4 border-r-2"
+                                    style={{borderColor: desc.color}}
+                                >
+                                    <h3
+                                        className="text-base pb-1 font-bold"
+                                        style={{color: desc.color}}
+                                    >
+                                        {desc.title}
+                                    </h3>
+                                    {desc.text && (
+                                        <p className="text-sm text-gray-700">{desc.text}</p>
+                                    )}
+                                </div>
+                            ))}
                         </div>
                     )}
+                </div>
 
-                    {q2 === "false" && (
-                        <div>
-                            <label htmlFor="q2_false" className="block text-sm font-medium text-gray-700 mb-1">
-                                اگر خیر، دلیل خاصی دارد؟
-                            </label>
-                            <input
-                                id="q2_false"
-                                name="q2_false"
-                                type="text"
-                                className="w-full border-b-2 border-gray-300 px-3 py-2 focus:outline-none focus:border-blue-600"
-                                value={q2_false}
-                                onChange={handleText("q2_false")}
-                                placeholder="مثلا: در دسترس نبودن فروشگاه"
-                            />
-                        </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex items-center justify-end gap-3 pt-2">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
-                        >
-                            انصراف
-                        </button>
-                        <button
-                            type="submit"
-                            className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700"
-                        >
-                            ثبت پاسخ‌ها
-                        </button>
+                {!resultKey && (
+                    <div className="px-6 py-5 flex items-center justify-between w-full">
+                        {step < data.length - 1 ? (
+                            <button
+                                type="button"
+                                onClick={goNext}
+                                disabled={!canNext}
+                                className="w-full brand-blue text-white font-bold py-3 px-4 disabled:opacity-50"
+                            >
+                                بعدی
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={finish}
+                                disabled={!canNext}
+                                className="w-full brand-blue text-white font-bold py-3 px-4 disabled:opacity-50"
+                            >
+                                ثبت پاسخ‌ها
+                            </button>
+                        )}
                     </div>
-                </form>
+                )}
             </div>
         </div>
     );

@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type FC, type FormEvent, type ChangeEvent } from "react";
-import { type SignUpModalProps } from "../../types";
-import { QuestionsDialog } from "./QuestionsDialog";
+import {useEffect, useRef, useState, type FC, type FormEvent, type ChangeEvent} from "react";
+import {type SignUpModalProps} from "../../types";
+import {QuestionsDialog} from "./QuestionsDialog";
+import TermsDialog from "./TermsDialog";
 
 /* ------------------------------- helpers ------------------------------- */
 
@@ -25,7 +26,7 @@ const API_BASE = "https://dove-backend.liara.run";
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
     const res = await fetch(`${API_BASE}${path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {"Content-Type": "application/json"},
         body: JSON.stringify(body),
     });
     let data: any = null;
@@ -50,7 +51,7 @@ const ModalHeader: FC<{
     titleId: string;
     subtitleId: string;
     canGoBack?: boolean;
-}> = ({ onBack, title, subtitle, titleId, subtitleId, canGoBack = true }) => (
+}> = ({onBack, title, subtitle, titleId, subtitleId, canGoBack = true}) => (
     <>
         <div className="flex justify-end items-center mb-4">
             {canGoBack && (
@@ -70,9 +71,11 @@ const ModalHeader: FC<{
 
 /* ------------------------------ component ------------------------------ */
 
-const SignUpModal: FC<SignUpModalProps> = ({ isOpen, onClose }) => {
+const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
     const [step, setStep] = useState<1 | 2>(1);
     const [termsAccepted, setTermsAccepted] = useState(false);
+
+    const [showTerms, setShowTerms] = useState(false); // 👈 new state
 
     const [fullName, setFullName] = useState("");
     const [phone, setPhone] = useState(""); // stored as western digits
@@ -151,8 +154,8 @@ const SignUpModal: FC<SignUpModalProps> = ({ isOpen, onClose }) => {
 
         setSubmitting(true);
         setErrorMsg(null);
-        postJSON<{ ok: true; ttl: number }>("/api/otp/send", { phone, fullName })
-            .then(({ ttl }) => {
+        postJSON<{ ok: true; ttl: number }>("/api/otp/send", {phone, fullName})
+            .then(({ttl}) => {
                 setStep(2);
                 setTimer(Number.isFinite(ttl) ? ttl : 120); // start from server TTL
             })
@@ -169,7 +172,7 @@ const SignUpModal: FC<SignUpModalProps> = ({ isOpen, onClose }) => {
 
         setSubmitting(true);
         setErrorMsg(null);
-        postJSON<{ ok: true }>("/api/otp/verify", { phone, code: otp })
+        postJSON<{ ok: true }>("/api/otp/verify", {phone, code: otp})
             .then(() => {
                 // ✅ open Questions and implicitly dismiss/hide the signup modal
                 setShowQuestions(true);
@@ -201,10 +204,6 @@ const SignUpModal: FC<SignUpModalProps> = ({ isOpen, onClose }) => {
                         onClose={() => {
                             setShowQuestions(false);
                             onClose(); // finally close signup after finishing questions
-                        }}
-                        onSubmit={(answers) => {
-                            // integrate with backend later
-                            console.log("answers:", answers);
                         }}
                     />
                 )}
@@ -272,23 +271,37 @@ const SignUpModal: FC<SignUpModalProps> = ({ isOpen, onClose }) => {
                                 <div className="flex items-center my-6">
                                     {/* No ticking timer on step 1 */}
                                     <p className="text-sm text-gray-500 ml-auto" aria-live="polite">
-                                        —
+
                                     </p>
                                     <input
                                         id="terms"
                                         type="checkbox"
                                         checked={termsAccepted}
-                                        onChange={(e: ChangeEvent<HTMLInputElement>) => setTermsAccepted(e.target.checked)}
+                                        onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                                            setTermsAccepted(e.target.checked)
+                                        }
                                         className="ml-2"
                                         required
                                     />
                                     <label htmlFor="terms" className="text-xs text-gray-700">
-                                        <a href="/" className="text-blue-600 hover:underline">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowTerms(true)}
+                                            className="text-blue-600 hover:underline"
+                                        >
                                             قوانین و شرایط
-                                        </a>{" "}
+                                        </button>
+                                        {" "}
                                         را مطالعه کردم و با آن موافقم.
                                     </label>
                                 </div>
+
+                                <TermsDialog
+                                    isOpen={showTerms}
+                                    onClose={() => setShowTerms(false)}
+                                    title="قوانین و شرایط"
+                                    content={`اینجا متن قوانین و شرایط شما قرار می‌گیرد...`}
+                                />
 
                                 <button
                                     type="submit"
@@ -371,9 +384,6 @@ const SignUpModal: FC<SignUpModalProps> = ({ isOpen, onClose }) => {
                     onClose={() => {
                         setShowQuestions(false);
                         onClose(); // finally close signup after finishing questions
-                    }}
-                    onSubmit={(answers) => {
-                        console.log("answers:", answers);
                     }}
                 />
             )}

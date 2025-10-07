@@ -22,7 +22,7 @@ const App: FC = () => {
             {/* Main landmark */}
             <main className="mx-auto" role="main">
                 {/* Page intro / hero in a semantic header */}
-                <header className="sticky-wrapper" aria-labelledby="page-hero-heading">
+                <header id="home-section" className="sticky-wrapper" aria-labelledby="page-hero-heading">
                     {/* Visually-hidden, for SEO/a11y */}
                     <h1 id="page-hero-heading" className="sr-only">
                         محصولات و کمپین داو

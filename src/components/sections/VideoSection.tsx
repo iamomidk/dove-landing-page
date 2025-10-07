@@ -122,21 +122,23 @@ export const VideoSection: FC = () => {
                 v.removeAttribute("src");
                 v.load();
             }
-        } catch {
-        }
+        } catch { /* empty */ }
         setSignedUrl(null);
     }, [open]);
 
     return (
-        <section id="video" className="scroll-section">
+        <section
+            id="video" className="scroll-section text-center bg-contain bg-center bg-no-repeat relative"
+            style={{backgroundImage: "url('/cover.jpg')"}}
+        >
             {/* Cover image + Play button */}
             <div className="relative w-full">
-                <img
+                {/*<img
                     src="/cover.jpg"
                     alt="تصویر محصولات داو"
                     className="w-full max-h-[100vh] object-contain sm:object-cover"
                     loading="lazy"
-                />
+                />*/}
 
                 <button
                     ref={openerBtnRef}
@@ -182,7 +184,6 @@ export const VideoSection: FC = () => {
                                 ref={videoRef}
                                 className="w-full h-full bg-black"
                                 playsInline
-                                muted
                                 controls
                                 autoPlay={!prefersReducedMotion}
                                 preload="metadata"
