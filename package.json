@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.901.0",
     "@tailwindcss/vite": "^4.1.12",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
@@ -20,6 +21,8 @@
     "ioredis": "^5.8.0",
     "kavenegar": "^1.1.4",
     "morgan": "^1.10.1",
+    "pino": "^10.0.0",
+    "pino-http": "^11.0.0",
     "rate-limit-redis": "^4.2.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
@@ -27,6 +30,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
+    "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/kavenegar": "^1.1.3",

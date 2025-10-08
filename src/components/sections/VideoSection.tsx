@@ -38,10 +38,9 @@ export const VideoSection: FC = () => {
         return () => window.removeEventListener("keydown", onKey);
     }, [open]);
 
-    // Focus trap + restore focus to opener on close
+    // Focus trap + restore focus
     useEffect(() => {
         if (!open) return;
-
         const root = dialogRef.current;
         if (!root) return;
 
@@ -83,15 +82,14 @@ export const VideoSection: FC = () => {
         };
     }, [open]);
 
-    // Fetch a pre-signed URL from the server when dialog opens
+    // Fetch signed URL
     useEffect(() => {
         if (!open) return;
-
         let cancelled = false;
         setLoading(true);
         setSignedUrl(null);
 
-        const params = new URLSearchParams({key: "input.mp4"}); // change object key if needed
+        const params = new URLSearchParams({key: "input.mp4"});
         fetch(`https://dove-backend.liara.run/api/video-url?${params.toString()}`)
             .then(async (r) => {
                 if (!r.ok) throw new Error("failed to get signed url");
@@ -112,7 +110,7 @@ export const VideoSection: FC = () => {
         };
     }, [open]);
 
-    // Pause and release src when closing
+    // Pause & cleanup on close
     useEffect(() => {
         if (open) return;
         const v = videoRef.current;
@@ -122,40 +120,44 @@ export const VideoSection: FC = () => {
                 v.removeAttribute("src");
                 v.load();
             }
-        } catch { /* empty */ }
+        } catch {
+        }
         setSignedUrl(null);
     }, [open]);
 
+    const [isDesktop, setIsDesktop] = useState(false);
+
+    useEffect(() => {
+        const handleResize = () => setIsDesktop(window.innerWidth >= 768); // md breakpoint
+        handleResize();
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+    const bgImage = isDesktop ? "/cover-desktop.jpg" : "/cover-mobile.jpg";
+
     return (
         <section
-            id="video" className="scroll-section text-center bg-contain bg-center bg-no-repeat relative"
-            style={{backgroundImage: "url('/cover.jpg')"}}
+            id="video"
+            className="scroll-section relative flex justify-center items-center bg-cover bg-center bg-no-repeat"
+            style={{backgroundImage: `url('${bgImage}')`}}
         >
-            {/* Cover image + Play button */}
-            <div className="relative w-full">
-                {/*<img
-                    src="/cover.jpg"
-                    alt="تصویر محصولات داو"
-                    className="w-full max-h-[100vh] object-contain sm:object-cover"
-                    loading="lazy"
-                />*/}
-
-                <button
-                    ref={openerBtnRef}
-                    type="button"
-                    onClick={openDialog}
-                    className="absolute inset-0 m-auto h-20 w-20 rounded-full bg-[#003366] text-white shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#003366] flex items-center justify-center bg-center"
-                    aria-label="پخش ویدیو"
-                    aria-haspopup="dialog"
-                    aria-controls="dove-video-dialog"
-                    style={{aspectRatio: "1 / 1"}}
-                >
-                    <svg viewBox="0 0 24 24" className="h-10 w-10" aria-hidden="true">
-                        <circle cx="12" cy="12" r="12" fill="currentColor" opacity="0.15"/>
-                        <path d="M9 7l8 5-8 5V7z" fill="currentColor"/>
-                    </svg>
-                </button>
-            </div>
+            {/* Play Button */}
+            <button
+                ref={openerBtnRef}
+                type="button"
+                onClick={openDialog}
+                className="absolute md:static m-auto h-20 w-20 rounded-full bg-[#003366] text-white shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#003366] flex items-center justify-center"
+                aria-label="پخش ویدیو"
+                aria-haspopup="dialog"
+                aria-controls="dove-video-dialog"
+                style={{aspectRatio: "1 / 1"}}
+            >
+                <svg viewBox="0 0 24 24" className="h-10 w-10" aria-hidden="true">
+                    <circle cx="12" cy="12" r="12" fill="currentColor" opacity="0.15"/>
+                    <path d="M9 7l8 5-8 5V7z" fill="currentColor"/>
+                </svg>
+            </button>
 
             {/* Dialog */}
             {open && (
@@ -166,7 +168,7 @@ export const VideoSection: FC = () => {
                     aria-modal="true"
                     aria-labelledby="dove-video-title"
                     aria-describedby="dove-video-desc"
-                    className="fixed inset-0 z-50 flex items-center justify-center"
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-10"
                     onMouseDown={(e) => {
                         if (e.target === e.currentTarget) close();
                     }}
@@ -174,15 +176,20 @@ export const VideoSection: FC = () => {
                     {/* Backdrop */}
                     <div className="absolute inset-0 bg-black/80"/>
 
-                    {/* Dialog content */}
-                    <div className="relative z-10 w-full h-full">
-                        <h2 id="dove-video-title" className="sr-only">ویدیو داو</h2>
-                        <p id="dove-video-desc" className="sr-only">پخش ویدیو در پنجره تمام‌صفحه.</p>
+                    {/* Video Container */}
+                    <div
+                        className="relative z-10 w-full max-w-5xl h-[60vh] md:h-[80vh] bg-black rounded-md overflow-hidden flex items-center justify-center">
+                        <h2 id="dove-video-title" className="sr-only">
+                            ویدیو داو
+                        </h2>
+                        <p id="dove-video-desc" className="sr-only">
+                            پخش ویدیو در پنجره تمام‌صفحه.
+                        </p>
 
                         {signedUrl ? (
                             <video
                                 ref={videoRef}
-                                className="w-full h-full bg-black"
+                                className="w-full h-full object-contain"
                                 playsInline
                                 controls
                                 autoPlay={!prefersReducedMotion}
@@ -195,11 +202,11 @@ export const VideoSection: FC = () => {
                             </div>
                         )}
 
-                        {/* Close button (overlay) */}
+                        {/* Close Button */}
                         <button
                             type="button"
                             onClick={close}
-                            className="absolute top-4 right-4 h-12 w-12 text-white flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white mt-16"
+                            className="absolute top-4 right-4 h-12 w-12 text-white flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white rounded-full bg-black/50"
                             aria-label="بستن ویدیو"
                         >
                             <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">

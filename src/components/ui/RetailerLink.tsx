@@ -1,4 +1,4 @@
-import {type FC, useState} from "react";
+import React, {type FC, useState} from "react";
 import type {RetailerLinkProps} from "../../types";
 
 /**
@@ -42,7 +42,7 @@ export const RetailerLink: FC<RetailerLinkProps> = ({
 
     // Common content with optional discount image
     const content = (
-        <div className="flex items-center justify-center gap-2">
+        <div className="flex items-center justify-center gap-2 p-4">
             {hasDiscount && (
                 <img
                     src="/offer.png" // 👈 replace with your badge/discount image path
@@ -54,7 +54,7 @@ export const RetailerLink: FC<RetailerLinkProps> = ({
             <img
                 src={imgSrc}
                 alt={alt}
-                className="h-8 object-contain p-1"
+                className="h-8 object-contain"
                 loading="lazy"
             />
         </div>

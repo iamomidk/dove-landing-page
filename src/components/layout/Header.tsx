@@ -1,106 +1,93 @@
-import {useEffect, useRef, useState, type FC} from "react";
+import {useState, type FC} from "react";
 import {MenuIcon, CloseIcon, HeaderLogo} from "../ui/Icons";
 
 const NAV_ITEMS = [
-    {href: "/", label: "خانه"},
-    {href: "/", label: "محصولات"},
-    {href: "/", label: "معرفی داو"},
-    {href: "/", label: "پشتیبانی"},
+    {label: "خانه", action: () => scrollToSection("home-section")},
+    {label: "معرفی داو", action: () => scrollToSection("intro-section")},
+    {label: "پشتیبانی", href: "/"},
 ];
 
-export const MobileNav: FC<{ isOpen: boolean; onClose: () => void }> = ({isOpen, onClose}) => {
-    const firstLinkRef = useRef<HTMLAnchorElement | null>(null);
-
-    // Close on ESC
-    useEffect(() => {
-        if (!isOpen) return;
-        const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
-    }, [isOpen, onClose]);
-
-    // Focus first link when opened
-    useEffect(() => {
-        if (isOpen) firstLinkRef.current?.focus();
-    }, [isOpen]);
-
-    // Lock background scroll while open
-    useEffect(() => {
-        if (!isOpen) return;
-        const prev = document.body.style.overflow;
-        document.body.style.overflow = "hidden";
-        return () => {
-            document.body.style.overflow = prev;
-        };
-    }, [isOpen]);
-
-    if (!isOpen) return null;
-
-    return (
-        <div
-            id="mobile-nav"
-            className="fixed inset-0 bg-white z-40 flex flex-col items-center justify-center text-center"
-            dir="rtl"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="mobile-nav-title"
-            onClick={(e) => {
-                if (e.target === e.currentTarget) onClose();
-            }}
-        >
-            <h2 id="mobile-nav-title" className="sr-only">منوی ناوبری</h2>
-
-            <button
-                onClick={onClose}
-                className="absolute top-6 right-6 text-gray-700"
-                aria-label="بستن منو"
-            >
-                <CloseIcon className="w-8 h-8"/>
-            </button>
-
-            <nav className="flex flex-col space-y-8" aria-label="ناوبری اصلی">
-                {NAV_ITEMS.map((item, idx) => (
-                    <a
-                        key={item.label}
-                        href={item.href}
-                        onClick={onClose}
-                        className="text-2xl text-brand-blue font-bold focus:outline-none focus:ring-2 focus:ring-brand-blue/50 rounded"
-                        ref={idx === 0 ? firstLinkRef : undefined}
-                    >
-                        {item.label}
-                    </a>
-                ))}
-            </nav>
-        </div>
-    );
+const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({behavior: "smooth"});
 };
 
 export const Header: FC = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
     return (
-        <>
-            <header
-                className="fixed top-0 left-0 right-0 z-50 px-4 py-3 flex justify-between items-center bg-white shadow-sm"
-                role="banner"
-            >
-                <a href="/" className="text-xl font-bold text-gray-800" aria-label="بازگشت به صفحه اصلی">
-                    <HeaderLogo/>
-                </a>
+        <header className="w-full fixed top-0 left-0 bg-white shadow-md z-50">
+            <div className="max-w-7xl mx-auto flex justify-between items-center px-6 md:px-10 py-4">
+                {/* Logo */}
+                <div className="flex items-center">
+                    <HeaderLogo className="h-10 w-auto"/>
+                </div>
 
+                {/* Desktop Nav */}
+                <nav className="hidden md:flex items-center gap-8 py-8">
+                    {NAV_ITEMS.map((item, idx) =>
+                        item.href ? (
+                            <a
+                                key={idx}
+                                href={item.href}
+                                target={item.href.startsWith("http") ? "_blank" : "_self"}
+                                rel="noopener noreferrer"
+                                className="flex items-center text-2xl font-medium text-[#DAA156] hover:text-brand-blue transition-colors"
+                            >
+                                <span className="px-2">{item.label}</span>
+                            </a>
+                        ) : (
+                            <button
+                                key={idx}
+                                onClick={item.action}
+                                className="flex items-center text-2xl font-medium text-[#DAA156] hover:text-brand-blue transition-colors"
+                            >
+                                <span className="px-2">{item.label}</span>
+                            </button>
+                        )
+                    )}
+                </nav>
+
+                {/* Mobile Menu Button */}
                 <button
-                    onClick={() => setIsMenuOpen(true)}
-                    className="text-brand-blue p-2 focus:outline-none focus:ring-2 focus:ring-brand-blue/50 rounded"
-                    aria-label="باز کردن منو"
-                    aria-haspopup="dialog"
-                    aria-expanded={isMenuOpen}
-                    aria-controls="mobile-nav"
+                    className="md:hidden text-[#DAA156]"
+                    onClick={() => setIsMenuOpen((p) => !p)}
+                    aria-label="Toggle Menu"
                 >
-                    <MenuIcon className="w-7 h-7"/>
+                    {isMenuOpen ? <CloseIcon/> : <MenuIcon/>}
                 </button>
-            </header>
+            </div>
 
-            <MobileNav isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)}/>
-        </>
+            {/* Mobile Menu */}
+            {isMenuOpen && (
+                <div className="md:hidden bg-white border-t border-gray-200 flex flex-col items-start gap-4 p-6">
+                    {NAV_ITEMS.map((item, idx) =>
+                        item.href ? (
+                            <a
+                                key={idx}
+                                href={item.href}
+                                target={item.href.startsWith("http") ? "_blank" : "_self"}
+                                rel="noopener noreferrer"
+                                className="flex items-center text-sm font-medium text-[#DAA156]"
+                                onClick={() => setIsMenuOpen(false)}
+                            >
+                                <span className="px-2">{item.label}</span>
+                            </a>
+                        ) : (
+                            <button
+                                key={idx}
+                                onClick={() => {
+                                    item.action?.();
+                                    setIsMenuOpen(false);
+                                }}
+                                className="flex items-center text-sm font-medium text-[#DAA156]"
+                            >
+                                <span className="px-2">{item.label}</span>
+                            </button>
+                        )
+                    )}
+                </div>
+            )}
+        </header>
     );
 };

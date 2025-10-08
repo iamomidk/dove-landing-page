@@ -1,15 +1,24 @@
-import type {FC} from "react";
+import {type FC, useEffect, useState} from "react";
 
-export const HeroSection: FC = () => (
-    <section
-        className="scroll-section text-center bg-contain bg-center bg-no-repeat relative"
-        style={{backgroundImage: "url('/dove-shampoo-conditoner.jpg')"}}
-    >
+export const HeroSection: FC = () => {
+    const [isDesktop, setIsDesktop] = useState(false);
 
-        {/*<div className="w-full">
-            <img src="/dove-shampoo-conditoner.jpg" alt="Dove Products" className="mx-auto w-full max-w-md"/>
-        </div>*/}
-        <div className="relative mt-2 flex-grow w-full flex items-center justify-center">
-        </div>
-    </section>
-);
+    useEffect(() => {
+        const handleResize = () => setIsDesktop(window.innerWidth >= 768); // md breakpoint
+        handleResize();
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+    const bgImage = isDesktop
+        ? "/dove-shampoo-conditioner-desktop.jpg"
+        : "/dove-shampoo-conditioner-mobile.jpg";
+
+    return (
+        <section
+            id="hero"
+            className="scroll-section relative w-full bg-cover bg-center bg-no-repeat flex items-center justify-center"
+            style={{backgroundImage: `url('${bgImage}')`}}
+        />
+    );
+};

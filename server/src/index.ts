@@ -1,3 +1,4 @@
+/*
 // src/index.ts
 import "dotenv/config";
 import express, {NextFunction, Request, Response} from "express";
@@ -14,9 +15,9 @@ import pino from "pino";
 import pinoHttp from "pino-http";
 import createHttpError from "http-errors";
 
-/* ------------------------------------
+/!* ------------------------------------
  * Config
- * ------------------------------------ */
+ * ------------------------------------ *!/
 const PORT = Number(process.env.PORT || 4000);
 const OTP_TTL = Number(process.env.OTP_TTL_SECONDS ?? 300);
 const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS ?? 5);
@@ -31,9 +32,9 @@ const ALLOW_WILDCARD = (process.env.ALLOW_WILDCARD || "true").toLowerCase() === 
 const IR_MOBILE = /^0?9\d{9}$/;
 const LOG_LEVEL = process.env.LOG_LEVEL || (process.env.NODE_ENV === "production" ? "info" : "debug");
 
-/* ------------------------------------
+/!* ------------------------------------
  * Logger
- * ------------------------------------ */
+ * ------------------------------------ *!/
 const logger = pino({
     level: LOG_LEVEL,
     ...(process.env.NODE_ENV !== "production"
@@ -46,9 +47,9 @@ const logger = pino({
         : {}),
 });
 
-/* ------------------------------------
+/!* ------------------------------------
  * App & Middleware
- * ------------------------------------ */
+ * ------------------------------------ *!/
 const app = express();
 app.set("trust proxy", true);
 app.disable("x-powered-by");
@@ -83,9 +84,9 @@ app.use((req, res, next) => {
 
 app.use(helmet());
 app.use(compression());
-app.use(express.json({limit: "10kb", type: ["application/json", "application/*+json"]}));
+app.use(express.json({limit: "10kb", type: ["application/json", "application/!*+json"]}));
 
-/* ---------- CORS (smart + flexible allow-list with wildcard support) ---------- */
+/!* ---------- CORS (smart + flexible allow-list with wildcard support) ---------- *!/
 function normalizeOrigin(o?: string | null) {
     if (!o) return "";
     try {
@@ -98,10 +99,10 @@ function normalizeOrigin(o?: string | null) {
     }
 }
 
-/**
+/!**
  * Process ALLOWED_ORIGINS env:
  * - comma-separated list of origins (e.g. https://dove-promo.liara.run, http://localhost:3000, *.liara.run)
- */
+ *!/
 const rawAllowlist = (process.env.ALLOWED_ORIGINS || "")
     .split(",")
     .map((s) => s.trim())
@@ -121,7 +122,7 @@ const expandedAllowlist = Array.from(
     )
 );
 
-/** Check origin against allowlist (supports wildcard entries like *.liara.run when ALLOW_WILDCARD=true) */
+/!** Check origin against allowlist (supports wildcard entries like *.liara.run when ALLOW_WILDCARD=true) *!/
 function isAllowedOrigin(origin?: string | null) {
     if (!origin) return true; // server-to-server or same-origin
     const clean = normalizeOrigin(origin);
@@ -149,7 +150,7 @@ function isAllowedOrigin(origin?: string | null) {
             const host = new URL(clean).hostname;
             if (host.endsWith(".liara.run")) return true;
         } catch {
-            /* ignore */
+            /!* ignore *!/
         }
     }
 
@@ -184,9 +185,9 @@ app.use((_, res, next) => {
     next();
 });
 
-/* ------------------------------------
+/!* ------------------------------------
  * Redis
- * ------------------------------------ */
+ * ------------------------------------ *!/
 const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 const redis = new Redis(REDIS_URL);
 redis.on("connect", () => logger.info("✅ Redis connected"));
@@ -195,17 +196,17 @@ redis.on("reconnecting", () => logger.warn("Redis reconnecting..."));
 redis.on("end", () => logger.warn("Redis connection closed"));
 redis.on("error", (e) => logger.error({err: e}, "❌ Redis error"));
 
-/* ------------------------------------
+/!* ------------------------------------
  * Kavenegar
- * ------------------------------------ */
+ * ------------------------------------ *!/
 const kavenegar =
     OTP_SEND_MODE === "kavenegar" && process.env.KAVENEGAR_API_KEY
         ? Kavenegar.KavenegarApi({apikey: process.env.KAVENEGAR_API_KEY})
         : null;
 
-/* ------------------------------------
+/!* ------------------------------------
  * Liara S3
- * ------------------------------------ */
+ * ------------------------------------ *!/
 function requireEnv(name: string): string {
     const v = process.env[name];
     if (!v) throw new Error(`Missing required env var: ${name}`);
@@ -228,9 +229,9 @@ export const s3 =
         })
         : null;
 
-/* ------------------------------------
+/!* ------------------------------------
  * Helpers & Validation
- * ------------------------------------ */
+ * ------------------------------------ *!/
 const phoneSchema = z.object({phone: z.string().regex(IR_MOBILE)});
 const sendSchema = phoneSchema.extend({fullName: z.string().min(2)});
 const verifySchema = phoneSchema.extend({code: z.string().length(4).regex(/^\d{4}$/)});
@@ -265,9 +266,9 @@ const kSendPhone = (p: string) => `rl:send:phone:${p}`;
 const kSendIp = (addr: string) => `rl:send:ip:${addr}`;
 const kVerifyIp = (addr: string) => `rl:verify:ip:${addr}`;
 
-/* ------------------------------------
+/!* ------------------------------------
  * SMS send helper
- * ------------------------------------ */
+ * ------------------------------------ *!/
 function sendSms({
                      receptor,
                      token,
@@ -328,9 +329,9 @@ function sendSms({
     });
 }
 
-/* ------------------------------------
+/!* ------------------------------------
  * Routes
- * ------------------------------------ */
+ * ------------------------------------ *!/
 
 // Liveness
 app.get("/health", ah(async (_req: Request, res: Response) => res.status(200).send("ok")));
@@ -458,16 +459,16 @@ app.post("/api/otp/verify", ah(async (req: Request, res: Response) => {
     res.json({ok: true});
 }));
 
-/* ------------------------------------
+/!* ------------------------------------
  * 404 Not Found (after routes)
- * ------------------------------------ */
+ * ------------------------------------ *!/
 app.use((req, _res, next) => {
     next(createHttpError(404, `Route not found: ${req.method} ${req.originalUrl}`));
 });
 
-/* ------------------------------------
+/!* ------------------------------------
  * Error handler (last)
- * ------------------------------------ */
+ * ------------------------------------ *!/
 app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const id = res.locals.requestId || (req as any).id;
     const log = res.locals.log || logger;
@@ -511,15 +512,15 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
             res.setHeader("Vary", "Origin");
         }
     } catch {
-        /* ignore */
+        /!* ignore *!/
     }
 
     res.status(status).json(payload);
 });
 
-/* ------------------------------------
+/!* ------------------------------------
  * Start + Graceful shutdown
- * ------------------------------------ */
+ * ------------------------------------ *!/
 const server = app.listen(PORT, () => {
     logger.info(
         {
@@ -556,4 +557,4 @@ process.on("unhandledRejection", (reason: any) => {
 process.on("uncaughtException", (err) => {
     logger.error({err}, "Uncaught exception");
     if (process.env.NODE_ENV === "production") process.exit(1);
-});
+});*/

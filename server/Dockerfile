@@ -1,27 +1,15 @@
-# --- build stage ---
-FROM node:20-alpine AS build
+FROM node:18-alpine AS builder
 WORKDIR /app
-
-# install deps (including dev for tsc)
-COPY package*.json tsconfig.json ./
-RUN npm ci
-
-# compile TS
-COPY src ./src
+COPY package.json package-lock.json* ./
+RUN npm ci --silent
+COPY . .
 RUN npm run build
 
-# prune dev dependencies for lean runtime
-RUN npm prune --omit=dev
-
-# --- runtime stage ---
-FROM node:20-alpine AS runner
+FROM node:18-alpine
 WORKDIR /app
 ENV NODE_ENV=production
-
-# copy production node_modules, dist, and package files
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/package*.json ./
-
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
 EXPOSE 4000
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/server.js"]

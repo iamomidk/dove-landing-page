@@ -59,10 +59,7 @@ export const Footer: FC = () => {
 
     const openFor = (retailer: RetailerId) => {
         const cfg = retailerMap[retailer];
-
-        if (!cfg) {
-            return;
-        }
+        if (!cfg) return;
 
         setModal({
             open: true,
@@ -75,21 +72,21 @@ export const Footer: FC = () => {
         });
     };
 
-    // ---------------- Scroll Handler ----------------
     const scrollToSection = (id: string) => {
         const el = document.getElementById(id);
         if (el) el.scrollIntoView({behavior: "smooth"});
     };
 
     return (
-        <section className="flex flex-col bg-gray-100 w-full rounded-lg shadow-md overflow-hidden">
-            {/* Retailers column */}
-            <div className="w-full flex-grow flex flex-col justify-center items-center p-8">
-                <div className="w-full max-w-xs mx-auto space-y-4">
-                    <h2 className="text-xl text-brand-blue text-center font-bold mb-16">
-                        با خرید از فروشگاه‌های اکالا و اسنپ تخفیف دریافت کنید.
-                    </h2>
+        <section className="flex flex-col w-full bg-gray-100">
+            {/* Retailers section */}
+            <div className="w-full flex-grow flex flex-col items-center p-8 md:p-16">
+                <h2 className="text-xl md:text-2xl text-brand-blue text-center font-bold mb-12 md:mb-20">
+                    با خرید از فروشگاه‌های اکالا و اسنپ تخفیف دریافت کنید.
+                </h2>
 
+                {/* Retailer Links - responsive grid */}
+                <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-8 place-items-center">
                     <RetailerLink
                         retailer="okala"
                         imgSrc="/okala_logo.png"
@@ -122,58 +119,68 @@ export const Footer: FC = () => {
                 </div>
             </div>
 
-            {/* Bottom footer content */}
-            <footer className="relative w-full text-white brand-blue mt-16">
+            {/* Bottom Footer */}
+            <footer className="relative w-full text-white bg-[#001F5F] mt-16">
                 <img
                     src="/concave_top.svg"
-                    alt="Dove Logo"
-                    className="h-auto w-full"
+                    alt="Footer curve"
+                    className="h-auto w-full -mt-1"
                 />
-                <div className="flex-grow flex flex-col justify-center items-start pt-4 pb-4">
-                    <img
-                        src="/dove_footer_logo.png"
-                        alt="Dove Logo"
-                        className="h-10 w-auto mb-4 mt-20 opacity-80 pr-8 pl-8"
-                    />
-                    <div className="text-sm space-y-2 opacity-80 mt-4 pr-8 pl-8">
-                        <p>دفتر مرکزی</p>
-                        <p>تهران، میدان آرژانتین، خیابان زاگرس، نبش خیابان ۳۳، پلاک ۲۳ کد پستی: ۱۵۱۶۶۸۳۱۱۱</p>
+
+                <div
+                    className="w-full max-w-6xl mx-auto flex flex-col md:flex-row justify-between gap-12 px-6 md:px-12 pb-10 pt-20 items-center">
+                    {/* Right Column */}
+                    <div className="flex flex-col items-start">
+                        <img
+                            src="/dove_footer_logo.png"
+                            alt="Dove Logo"
+                            className="h-10 w-auto mb-4"
+                        />
+                        <div className="text-sm space-y-2">
+                            <p className="text-xs pt-4">دفتر مرکزی</p>
+                            <p className="text-xs py-4">
+                                تهران، میدان آرژانتین، خیابان زاگرس، نبش خیابان ۳۳، پلاک ۲۳ کد
+                                پستی: ۱۵۱۶۶۸۳۱۱۱
+                            </p>
+                            <p className="text-xs pb-4">
+                                تمامی حقوق مادی و معنوی این وب سایت به گروه داو تعلق دارد © 2025
+                            </p>
+                        </div>
                     </div>
-                    <div className="flex flex-col justify-center space-y-2 mt-12 space-x-reverse opacity-80 pr-8 pl-8">
-                        <button
-                            className="flex items-center hover:opacity-100 opacity-100"
-                            onClick={() => scrollToSection("home-section")}
-                        >
-                            <ArrowLeft/>
-                            <span className="text-s px-2">خانه</span>
-                        </button>
-                        <button
-                            className="flex items-center hover:opacity-100 opacity-100"
-                            onClick={() => scrollToSection("intro-section")}
-                        >
-                            <ArrowLeft/>
-                            <span className="text-s px-2">معرفی داو</span>
-                        </button>
-                        <a href="/" className="flex items-center hover:opacity-100 opacity-100">
-                            <PhoneIcon/>
-                            <span className="text-s px-2">پشتیبانی</span>
-                        </a>
-                    </div>
-                    <div className="mt-6 opacity-80 pr-8 pl-8">
+
+                    {/* Left Nav */}
+                    <div className="flex flex-col items-start">
+                        <div className="flex flex-col md:flex-row items-start gap-6">
+                            <button
+                                className="flex items-center"
+                                onClick={() => scrollToSection("home-section")}
+                            >
+                                <ArrowLeft/>
+                                <span className="text-sm px-2">خانه</span>
+                            </button>
+
+                            <button
+                                className="flex items-center"
+                                onClick={() => scrollToSection("intro-section")}
+                            >
+                                <ArrowLeft/>
+                                <span className="text-sm px-2">معرفی داو</span>
+                            </button>
+
+                            <a href="/" className="flex items-center">
+                                <PhoneIcon/>
+                                <span className="text-sm px-2">پشتیبانی</span>
+                            </a>
+                        </div>
                         <a
                             href="https://www.instagram.com/dove.iran?igsh=dXgwenp6OG1hcWt3"
-                            target={"_blank"}
-                            rel={"noopener noreferrer"}
-                            className="flex items-center hover:opacity-100 opacity-100"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-start pt-6"
                         >
                             <InstagramIcon/>
-                            <span className="text-s px-2">اینستاگرام</span>
+                            <span className="text-sm px-2">ما را در شبکه‌های اجتماعی دنبال کنید.</span>
                         </a>
-                    </div>
-                    <div className="mt-12 opacity-80 pr-6 pl-6">
-                        <p className="text-xs">
-                            تمامی حقوق مادی و معنوی این وب سایت به گروه داو تعلق دارد . © 2025
-                        </p>
                     </div>
                 </div>
             </footer>

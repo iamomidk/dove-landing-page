@@ -6,12 +6,10 @@ import {
     type ShampooVariant,
 } from "../../types/shampoos";
 
-/* ------------------------------- types & data ------------------------------ */
-
 type Question = {
     id: string;
     title: string;
-    options: { id: ShampooCategory | "yes" | "no"; label: string }[]; // enforce shampoo categories here
+    options: { id: ShampooCategory | "yes" | "no"; label: string }[];
     required?: boolean;
 };
 
@@ -22,15 +20,11 @@ type QuestionsDialogProps = {
     questions?: Question[];
 };
 
-/* ------------------------------- helpers --------------------------------- */
-
 const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
 
 function toPersianDigits(input: string | number): string {
     return String(input).replace(/[0-9]/g, (d) => persianDigits[Number(d)]);
 }
-
-/* --------------------------- shampoo logic --------------------------- */
 
 function calculateShampoos(
     answers: Record<string, string>
@@ -50,8 +44,6 @@ function calculateShampoos(
     }
 }
 
-/* ------------------------------- component -------------------------------- */
-
 export const QuestionsDialog: FC<QuestionsDialogProps> = ({
                                                               isOpen,
                                                               onClose,
@@ -62,7 +54,7 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
         () => [
             {
                 id: "color",
-                title: "رنگ یا دکلره کرده‌ای؟",
+                title: "موهات رنگ یا دکلره داره؟",
                 options: [
                     {id: "yes", label: "آره"},
                     {id: "no", label: "نه"},
@@ -105,7 +97,6 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
     );
 
     const data = questions && questions.length ? questions : DEFAULT_QUESTIONS;
-
     const [step, setStep] = useState(0);
     const [answers, setAnswers] = useState<Record<string, string>>({});
     const [resultKey, setResultKey] = useState<
@@ -114,8 +105,6 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
 
     const dialogRootRef = useRef<HTMLDivElement | null>(null);
     const cardRef = useRef<HTMLDivElement | null>(null);
-
-    /* ---------------------- lifecycle ---------------------- */
 
     useEffect(() => {
         if (!isOpen) return;
@@ -133,8 +122,6 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
         return () => window.removeEventListener("keydown", onKey);
     }, [isOpen, onClose]);
 
-    /* ---------------------- logic ---------------------- */
-
     const current = data[step];
     const currentValue = answers[current.id];
     const canNext = current.required ? Boolean(currentValue) : true;
@@ -146,9 +133,8 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
 
     const goNext = () => {
         if (!canNext) return;
-
         if (current.id === "color" && currentValue === "yes") {
-            setStep(1); // jump to colorGoal
+            setStep(1);
         } else if (current.id === "colorGoal" && answers["color"] === "yes") {
             finish();
         } else if (step < data.length - 1) {
@@ -165,24 +151,19 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
 
     if (!isOpen) return null;
 
-    /* ----------------------------- helpers ----------------------------- */
-
     const getDescriptions = (): ShampooDescription[] => {
         if (!resultKey) return [];
         const shampoo: ShampooVariant =
             resultKey.combo
                 ? SHAMPOO_DATA[resultKey.main][resultKey.combo]!
                 : SHAMPOO_DATA[resultKey.main].default;
-
         return shampoo.descriptions;
     };
-
-    /* ----------------------------- UI ----------------------------- */
 
     return (
         <div
             ref={dialogRootRef}
-            className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-6 z-50 overflow-auto"
             role="dialog"
             aria-modal="true"
             aria-labelledby="questions-modal-title"
@@ -190,18 +171,17 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
         >
             <div
                 ref={cardRef}
-                className="bg-white shadow-2xl w-full max-w-sm mx-auto rounded-none"
+                className="bg-white shadow-2xl w-full max-w-sm md:max-w-3xl mx-auto overflow-hidden"
                 onMouseDown={(e) => e.stopPropagation()}
             >
-                <div className="px-6 pb-2">
+                <div className="px-6 py-6 md:py-8 overflow-auto max-h-[90vh]">
                     {!resultKey ? (
-                        /* ---- Question Flow ---- */
                         <>
                             {/* Navigation */}
-                            <div className="flex justify-end items-center px-6 pt-6">
+                            <div className="flex justify-end items-center mb-4">
                                 <button
                                     onClick={step === 0 ? onClose : goPrev}
-                                    className="text-sm text-gray-500 hover:text-gray-800 flex items-center"
+                                    className="text-sm text-gray-500 hover:text-gray-800"
                                     aria-label="بستن"
                                 >
                                     {step === 0 ? "بستن" : "قبلی"}
@@ -209,22 +189,22 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
                             </div>
 
                             {/* Step Indicator */}
-                            <div className="px-6 mt-2 mb-4">
-                                <p className="text-lg font-bold text-brand-blue">
-                                    {toPersianDigits(step + 1)}.
-                                </p>
-                            </div>
+                            <p className="text-lg font-bold text-brand-blue mb-4">
+                                {toPersianDigits(step + 1)}.
+                            </p>
 
                             {/* Question */}
-                            <p className="mb-4 font-bold text-brand-blue">{current.title}</p>
-                            <fieldset className="space-y-2" aria-label={current.title}>
+                            <p className="mb-4 font-bold text-brand-blue text-xl">{current.title}</p>
+                            <fieldset
+                                className="grid grid-cols-1 md:grid-cols-2 gap-3"
+                                aria-label={current.title}
+                            >
                                 {current.options.map((opt) => {
                                     const checked = currentValue === opt.id;
                                     return (
                                         <label
                                             key={opt.id}
-                                            className={`flex items-center rounded-xl px-4 py-3 cursor-pointer transition
-                      ${
+                                            className={`flex items-center rounded-xl px-4 py-3 cursor-pointer transition border ${
                                                 checked
                                                     ? "border-[#003366] bg-[#003366]/5"
                                                     : "border-gray-200 hover:border-gray-300"
@@ -238,7 +218,7 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
                                                 onChange={() => selectAnswer(current.id, opt.id)}
                                                 className="accent-[#003366]"
                                             />
-                                            <span className="text-sm text-gray-800 mr-4">
+                                            <span className="text-xl text-gray-800 mr-4">
                         {opt.label}
                       </span>
                                         </label>
@@ -247,12 +227,12 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
                             </fieldset>
                         </>
                     ) : (
-                        /* ---- Result ---- */
-                        <div className="text-center py-4">
-                            <div className="flex justify-end items-center">
+                        /* Result */
+                        <div className="text-center py-4 px-20">
+                            <div className="flex justify-end mb-4">
                                 <button
                                     onClick={onClose}
-                                    className="text-sm text-gray-500 hover:text-gray-800 flex items-center"
+                                    className="text-sm text-gray-500 hover:text-gray-800"
                                     aria-label="بستن"
                                 >
                                     بستن
@@ -266,28 +246,23 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
                                         : SHAMPOO_DATA[resultKey.main].default.image
                                 }
                                 alt={resultKey.main}
-                                className="w-full h-56 object-contain mb-4"
+                                className="w-full h-64 md:h-80 object-contain mb-4"
                             />
 
-                            <h3 className="text-right font-bold py-8 text-[#797776]">
+                            <h3 className="text-right font-bold py-4 md:py-8 text-[#797776] text-2xl">
                                 شامپوی مناسب موهای شما
                             </h3>
 
                             {getDescriptions().map((desc, i) => (
                                 <div
                                     key={i}
-                                    className="mb-4 text-justify pr-4 border-r-2"
+                                    className="mb-8 text-justify px-4 border-r-2"
                                     style={{borderColor: desc.color}}
                                 >
-                                    <h3
-                                        className="text-base pb-1 font-bold"
-                                        style={{color: desc.color}}
-                                    >
+                                    <h3 className="text-xl pb-1 font-bold" style={{color: desc.color}}>
                                         {desc.title}
                                     </h3>
-                                    {desc.text && (
-                                        <p className="text-sm text-gray-700">{desc.text}</p>
-                                    )}
+                                    {desc.text && <p className="text-lg text-gray-700">{desc.text}</p>}
                                 </div>
                             ))}
                         </div>
@@ -295,13 +270,13 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
                 </div>
 
                 {!resultKey && (
-                    <div className="px-6 py-5 flex items-center justify-between w-full">
+                    <div className="px-6 py-5 flex justify-end w-full">
                         {step < data.length - 1 ? (
                             <button
                                 type="button"
                                 onClick={goNext}
                                 disabled={!canNext}
-                                className="w-full brand-blue text-white font-bold py-3 px-4 disabled:opacity-50"
+                                className="w-full md:w-auto brand-blue text-white font-bold py-3 px-6 disabled:opacity-50 text-xl"
                             >
                                 بعدی
                             </button>
@@ -310,7 +285,7 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
                                 type="button"
                                 onClick={finish}
                                 disabled={!canNext}
-                                className="w-full brand-blue text-white font-bold py-3 px-4 disabled:opacity-50"
+                                className="w-full md:w-auto brand-blue text-white font-bold py-3 px-6 disabled:opacity-50 text-xl"
                             >
                                 ثبت پاسخ‌ها
                             </button>

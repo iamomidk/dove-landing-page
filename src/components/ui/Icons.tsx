@@ -7,7 +7,7 @@ export const HeaderLogo: FC<IconProps> = () => (
     <img
         src="/dove_header_logo.png"
         alt="Dove Logo"
-        className="h-7 w-auto"
+        className="h-8 w-auto"
     />
 );
 export const CopyLogo: FC<IconProps> = () => (

@@ -154,7 +154,10 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
 
         setSubmitting(true);
         setErrorMsg(null);
-        postJSON<{ ok: true; ttl: number }>("/api/otp/send", {phone, fullName})
+        setStep(2);
+        setTimer(120); // start from server TTL
+        setSubmitting(false);
+        /*postJSON<{ ok: true; ttl: number }>("/api/otp/send", {phone, fullName})
             .then(({ttl}) => {
                 setStep(2);
                 setTimer(Number.isFinite(ttl) ? ttl : 120); // start from server TTL
@@ -162,7 +165,7 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
             .catch((err: Error) => {
                 setErrorMsg(err.message);
             })
-            .finally(() => setSubmitting(false));
+            .finally(() => setSubmitting(false));*/
     };
 
     // Verify OTP via server
@@ -172,7 +175,9 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
 
         setSubmitting(true);
         setErrorMsg(null);
-        postJSON<{ ok: true }>("/api/otp/verify", {phone, code: otp})
+        setShowQuestions(true);
+        setSubmitting(false)
+        /*postJSON<{ ok: true }>("/api/otp/verify", {phone, code: otp})
             .then(() => {
                 // ✅ open Questions and implicitly dismiss/hide the signup modal
                 setShowQuestions(true);
@@ -180,7 +185,7 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
             .catch((err: Error) => {
                 setErrorMsg(err.message);
             })
-            .finally(() => setSubmitting(false));
+            .finally(() => setSubmitting(false));*/
     };
 
     // Persian-digit controlled inputs
@@ -217,16 +222,19 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
     return (
         <>
             <div
-                className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50"
+                className="fixed inset-0 bg-black/60 flex items-center justify-center p-6 z-50"
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby={titleId}
                 aria-describedby={subtitleId}
                 onClick={onClose}
             >
-                <div className="bg-white shadow-2xl w-full max-w-sm mx-auto" onClick={(e) => e.stopPropagation()}>
+                <div
+                    className="bg-white shadow-2xl w-full max-w-md md:max-w-2xl lg:max-w-3xl mx-auto overflow-hidden flex flex-col md:flex-row"
+                    onClick={(e) => e.stopPropagation()}
+                >
                     {step === 1 ? (
-                        <div className="p-6">
+                        <div className="flex-1 px-6 py-6 md:px-10 md:py-8">
                             <ModalHeader
                                 onBack={onClose}
                                 title="آشنایی"
@@ -242,18 +250,17 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                                         ref={step1FirstInputRef}
                                         type="text"
                                         placeholder="نام و نام خانوادگی"
-                                        className="rtl-form-input w-full px-4 py-3 border-b-2 border-gray-300 focus:outline-none focus:border-blue-500"
+                                        className="rtl-form-input w-full px-4 py-4 border-b-2 border-gray-300 focus:outline-none focus:border-blue-500 text-base md:text-lg"
                                         value={fullName}
-                                        onChange={(e: ChangeEvent<HTMLInputElement>) => setFullName(e.target.value)}
+                                        onChange={(e) => setFullName(e.target.value)}
                                         required
                                     />
                                 </div>
-
                                 <div className="mb-4">
                                     <input
                                         id="phone"
                                         type="tel"
-                                        className="rtl-form-input w-full px-4 py-3 border-b-2 border-gray-300 focus:outline-none focus:border-blue-500"
+                                        className="rtl-form-input w-full px-4 py-4 border-b-2 border-gray-300 focus:outline-none focus:border-blue-500 text-base md:text-lg"
                                         value={toPersianDigits(phone)}
                                         onChange={handlePhoneChange}
                                         pattern="0?9[0-9]{9}"
@@ -263,27 +270,21 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                                         aria-invalid={phone !== "" && !IR_MOBILE.test(phone)}
                                         aria-describedby="phone-hint"
                                     />
-                                    <p id="phone-hint" className="mt-1 text-xs text-gray-500">
+                                    <p id="phone-hint" className="mt-1 text-xs md:text-sm text-gray-500">
                                         شماره با {toPersianDigits("09")} شروع می‌شود.
                                     </p>
                                 </div>
 
                                 <div className="flex items-center my-6">
-                                    {/* No ticking timer on step 1 */}
-                                    <p className="text-sm text-gray-500 ml-auto" aria-live="polite">
-
-                                    </p>
                                     <input
                                         id="terms"
                                         type="checkbox"
                                         checked={termsAccepted}
-                                        onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                                            setTermsAccepted(e.target.checked)
-                                        }
+                                        onChange={(e) => setTermsAccepted(e.target.checked)}
                                         className="ml-2"
                                         required
                                     />
-                                    <label htmlFor="terms" className="text-xs text-gray-700">
+                                    <label htmlFor="terms" className="text-xs md:text-sm text-gray-700">
                                         <button
                                             type="button"
                                             onClick={() => setShowTerms(true)}
@@ -296,26 +297,21 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                                     </label>
                                 </div>
 
-                                <TermsDialog
-                                    isOpen={showTerms}
-                                    onClose={() => setShowTerms(false)}
-                                    title="قوانین و شرایط"
-                                    content={`اینجا متن قوانین و شرایط شما قرار می‌گیرد...`}
-                                />
-
                                 <button
                                     type="submit"
-                                    className="brand-blue text-white font-bold py-3  w-full transition-opacity disabled:opacity-50"
+                                    className="brand-blue text-white font-bold py-3 md:py-4 w-full text-base md:text-lg transition-opacity disabled:opacity-50"
                                     disabled={submitting || !termsAccepted || !fullName || !IR_MOBILE.test(phone)}
                                 >
                                     {submitting ? "در حال ارسال…" : "ارسال"}
                                 </button>
 
-                                {errorMsg && <p className="mt-2 text-xs text-red-600 text-center">{errorMsg}</p>}
+                                {errorMsg && (
+                                    <p className="mt-2 text-xs md:text-sm text-red-600 text-center">{errorMsg}</p>
+                                )}
                             </form>
                         </div>
                     ) : (
-                        <div className="p-6">
+                        <div className="flex-1 px-6 py-6 md:px-10 md:py-8">
                             <ModalHeader
                                 onBack={() => setStep(1)}
                                 title="تثبیت"
@@ -324,7 +320,7 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                                 subtitleId={subtitleId}
                             />
                             <form onSubmit={handleOtpSubmit} noValidate>
-                                <label htmlFor="otp" className="block text-sm text-gray-700 mb-1">
+                                <label htmlFor="otp" className="block text-sm md:text-base text-gray-700 mb-2">
                                     کد تایید
                                 </label>
                                 <input
@@ -332,7 +328,7 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                                     ref={step2FirstInputRef}
                                     type="text"
                                     placeholder="••••"
-                                    className="otp-input w-full px-4 py-3 border-b-2 border-gray-300 focus:outline-none focus:border-blue-500 mb-4"
+                                    className="otp-input w-full px-4 py-4 border-b-2 border-gray-300 focus:outline-none focus:border-blue-500 mb-4 text-base md:text-lg"
                                     maxLength={4}
                                     value={toPersianDigits(otp)}
                                     onChange={handleOtpChange}
@@ -342,35 +338,36 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
 
                                 <button
                                     type="submit"
-                                    className="brand-blue text-white font-bold py-3  w-full"
+                                    className="brand-blue text-white font-bold py-3 md:py-4 w-full text-base md:text-lg"
                                     disabled={submitting || otp.length !== 4}
                                 >
                                     {submitting ? "در حال بررسی…" : "نمایش سوالات"}
                                 </button>
 
                                 <div className="flex justify-between items-center my-4 gap-3">
-                                    <p className="text-sm text-gray-500" aria-live="polite">
+                                    <p className="text-sm md:text-base text-gray-500" aria-live="polite">
                                         {toPersianDigits(formatTime(timer))}
                                     </p>
                                     <button
                                         type="button"
-                                        className="text-xs text-blue-600 hover:underline disabled:opacity-50"
+                                        className="text-xs md:text-sm text-blue-600 hover:underline disabled:opacity-50"
                                         onClick={() => handleInfoSubmit()}
                                         disabled={submitting || timer > 0}
-                                        aria-disabled={submitting || timer > 0}
                                     >
                                         ارسال مجدد کد
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setStep(1)}
-                                        className="text-xs text-blue-600 hover:underline"
+                                        className="text-xs md:text-sm text-blue-600 hover:underline"
                                     >
                                         شماره موبایل اشتباه است؟
                                     </button>
                                 </div>
 
-                                {errorMsg && <p className="mt-2 text-xs text-red-600 text-center">{errorMsg}</p>}
+                                {errorMsg && (
+                                    <p className="mt-2 text-xs md:text-sm text-red-600 text-center">{errorMsg}</p>
+                                )}
                             </form>
                         </div>
                     )}
@@ -385,6 +382,29 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                         setShowQuestions(false);
                         onClose(); // finally close signup after finishing questions
                     }}
+                />
+            )}
+            {showTerms && (
+                <TermsDialog
+                    isOpen={showTerms}
+                    onClose={() => setShowTerms(false)}
+                    content={`قوانین و مقررات قرعه کشی محصولات داو
+با شرکت در قرعه کشی محصولات داو، شما با تمامی شرایط و قوانین زیر موافقت می‌نمایید.
+۱. شرایط کلی
+۱.۱. این قرعه کشی به صورت آنلاین برگزار می‌شود و شرکت در آن برای عموم آزاد است.
+1.۲. قرعه‌کشی در پایان کمپین  انجام می‌شود.
+۱.۳. در انتها  تعداد 8 برنده از میان شرکت‌کنندگان، به قید قرعه، انتخاب خواهند شد که هر یک پک کامل محصولات داو  و یک اتو مو فلیپس دریافت خواهند کرد.
+
+۲. نحوه شرکت در قرعه کشی
+۲.۱. برای شرکت در جشنواره، کافی است بعد از احراز هویت وارد بخش پاسخ به سوالات شوید.
+۲.۲. صرفاً صاحب خط تلفن همراهی که کد تایید را دریافت و  ارسال می‌کند، به عنوان برنده شناخته خواهد شد.
+۲.۳. هر شماره تلفن همراه فقط یک‌بار قابلیت شرکت در قرعه‌کشی را دارد.
+۲.۴. شانس شرکت در جشنواره برای هر شخص بر اساس تعداد شماره تلفن همراهی است که کدتایید دریافت و ارسال کرده است.
+
+۳. شرایط احراز هویت و دریافت هدایا
+۳.۱. برندگان موظفند برای دریافت جایزه، مدارک شناسایی معتبر (شامل کارت ملی و سند مالکیت خط) را ارائه نمایند.
+۳.۲. جایزه فقط به خود شخص برنده (صاحب خط ارسال کننده کد که مدارک هویتی معتبر ارائه داده است) تحویل خواهد شد.
+۳.۳. نتایج جشنواره  از طریق رسانه‌های رسمی برند داو اطلاع‌رسانی خواهد شد.`}
                 />
             )}
         </>
