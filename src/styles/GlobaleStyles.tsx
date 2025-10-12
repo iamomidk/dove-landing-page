@@ -68,7 +68,8 @@ const GlobalStyles: FC = () => (
     /* Sticky wrapper & sections */
     .sticky-wrapper { height: 300vh; position: relative; }
     .scroll-section {
-      height: 100vh;
+      min-height: 100svh;
+      height: auto;
       width: 100%;
       position: sticky;
       top: 0;
@@ -76,6 +77,9 @@ const GlobalStyles: FC = () => (
       flex-direction: column;
       justify-content: center;
       align-items: center;
+      background-position: center;
+      background-size: cover;
+      background-repeat: no-repeat;
     }
 
     .product-list-scroll {
@@ -173,7 +177,7 @@ const GlobalStyles: FC = () => (
     .card-item--details a { text-decoration: none; }
 
     /* Tags */
-    .card-tags { margin-top: auto; }
+    .card-tags {  }
     .card-tags-item {
       display: inline-block;
       background-color: #003366;

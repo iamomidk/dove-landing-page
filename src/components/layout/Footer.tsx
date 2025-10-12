@@ -27,7 +27,7 @@ export const Footer: FC = () => {
     const [modal, setModal] = useState<ModalState>({
         open: false,
         code: "",
-        logoSrc: "/okala_logo.png",
+        logoSrc: "/okala_logo.webp",
         accent: "#E22533",
         title: "کد تخفیف",
         description: "با وارد کردن این کد از تخفیف ویژه بهره‌مند شوید.",
@@ -36,7 +36,7 @@ export const Footer: FC = () => {
 
     const retailerMap: Partial<Record<RetailerId, RetailerCfg>> = {
         okala: {
-            logoSrc: "/okala_logo.png",
+            logoSrc: "/okala_logo.webp",
             accent: "#E22533",
             code: "110605",
             title: "کد تخفیف",
@@ -46,7 +46,7 @@ export const Footer: FC = () => {
             continueUrl: "https://www.okala.com/offer/110605",
         },
         snapp: {
-            logoSrc: "/snapp_express_logo.png",
+            logoSrc: "/snapp_express_logo.webp",
             accent: "#FF9600",
             code: "qtrk",
             title: "کد تخفیف",
@@ -80,16 +80,16 @@ export const Footer: FC = () => {
     return (
         <section className="flex flex-col w-full bg-gray-100">
             {/* Retailers section */}
-            <div className="w-full flex-grow flex flex-col items-center p-8 md:p-16">
+            <div className="w-full flex-grow flex flex-col items-center p-8 md:p-16 justify-center content-center">
                 <h2 className="text-xl md:text-2xl text-brand-blue text-center font-bold mb-12 md:mb-20">
                     با خرید از فروشگاه‌های اکالا و اسنپ تخفیف دریافت کنید.
                 </h2>
 
                 {/* Retailer Links - responsive grid */}
-                <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-8 place-items-center">
+                <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 place-items-center justify-center">
                     <RetailerLink
                         retailer="okala"
-                        imgSrc="/okala_logo.png"
+                        imgSrc="/okala_logo.webp"
                         alt="Okala Logo"
                         href=""
                         borderColor="#E22533"
@@ -99,22 +99,12 @@ export const Footer: FC = () => {
 
                     <RetailerLink
                         retailer="snapp"
-                        imgSrc="/snapp_express_logo.png"
+                        imgSrc="/snapp_express_logo.webp"
                         alt="Snapp! Express Logo"
                         href=""
                         borderColor="#FF9600"
                         onActivate={openFor}
                         hasDiscount={true}
-                    />
-
-                    <RetailerLink
-                        retailer="digikala"
-                        imgSrc="/digikala_logo.png"
-                        alt="Digikala Logo"
-                        href=""
-                        borderColor="#ED1944"
-                        onActivate={openFor}
-                        hasDiscount={false}
                     />
                 </div>
             </div>
@@ -132,7 +122,7 @@ export const Footer: FC = () => {
                     {/* Right Column */}
                     <div className="flex flex-col items-start">
                         <img
-                            src="/dove_footer_logo.png"
+                            src="/dove_footer_logo.webp"
                             alt="Dove Logo"
                             className="h-10 w-auto mb-4"
                         />
@@ -167,11 +157,20 @@ export const Footer: FC = () => {
                                 <span className="text-sm px-2">معرفی داو</span>
                             </button>
 
-                            <a href="/" className="flex items-center">
-                                <PhoneIcon/>
-                                <span className="text-sm px-2">پشتیبانی</span>
-                            </a>
+                            <div className="flex text-sm">
+                                <div className="flex items-center mb-1">
+                                    <PhoneIcon/>
+                                    <span className="px-2">پشتیبانی</span>
+                                </div>
+                                <a href="tel:02126216403" className="pl-8 hover:underline">
+                                    ۰۲۱ ۲۶۲۱ ۶۴۰۳
+                                </a>
+                                <a href="tel:02126217005" className="pl-8 hover:underline">
+                                    ۰۲۱ ۲۶۲۱ ۷۰۰۵
+                                </a>
+                            </div>
                         </div>
+
                         <a
                             href="https://www.instagram.com/dove.iran?igsh=dXgwenp6OG1hcWt3"
                             target="_blank"

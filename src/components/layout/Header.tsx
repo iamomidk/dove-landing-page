@@ -24,7 +24,7 @@ export const Header: FC = () => {
                 </div>
 
                 {/* Desktop Nav */}
-                <nav className="hidden md:flex items-center gap-8 py-8">
+                <nav className="hidden md:flex items-center gap-8 py-2">
                     {NAV_ITEMS.map((item, idx) =>
                         item.href ? (
                             <a

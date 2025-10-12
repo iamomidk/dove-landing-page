@@ -38,7 +38,7 @@ export type ShampooData = {
 export const SHAMPOO_DATA: ShampooData = {
     color_vibrancy: {
         default: {
-            image: "color_vibrancy.png",
+            image: "color_vibrancy-T.webp",
             descriptions: [
                 {
                     title: "موهای رنگ شده",
@@ -48,7 +48,7 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
         daily_moisture: {
-            image: "color_vibrancy_daily_moisture.png",
+            image: "color_vibrancy_daily_moisture.webp",
             descriptions: [
                 {
                     title: "موهای رنگ شده",
@@ -63,7 +63,7 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
         hair_fall_rescue: {
-            image: "color_vibrancy_hair_fall_rescue.png",
+            image: "color_vibrancy_hair_fall_rescue.webp",
             descriptions: [
                 {
                     title: "موهای رنگ شده",
@@ -78,7 +78,7 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
         intensive_repair: {
-            image: "color_vibrancy_intensive_repair.png",
+            image: "color_vibrancy_intensive_repair.webp",
             descriptions: [
                 {
                     title: "موهای رنگ شده",
@@ -93,7 +93,7 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
         purifying: {
-            image: "color_vibrancy_purifying.png",
+            image: "color_vibrancy_purifying.webp",
             descriptions: [
                 {
                     title: "موهای رنگ شده",
@@ -111,7 +111,7 @@ export const SHAMPOO_DATA: ShampooData = {
 
     daily_moisture: {
         default: {
-            image: "daily_moisture.png",
+            image: "daily_moisture-T.webp",
             descriptions: [
                 {
                     title: "رطوبت رسانی",
@@ -121,7 +121,7 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
         hair_fall_rescue: {
-            image: "daily_moisture_hair_fall_rescue.png",
+            image: "daily_moisture_hair_fall_rescue.webp",
             descriptions: [
                 {
                     title: "رطوبت رسانی",
@@ -136,7 +136,7 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
         intensive_repair: {
-            image: "daily_moisture_intensive_repair.png",
+            image: "daily_moisture_intensive_repair.webp",
             descriptions: [
                 {
                     title: "رطوبت رسانی",
@@ -151,7 +151,7 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
         purifying: {
-            image: "daily_moisture_purifying.png",
+            image: "daily_moisture_purifying.webp",
             descriptions: [
                 {
                     title: "رطوبت رسانی",
@@ -169,7 +169,7 @@ export const SHAMPOO_DATA: ShampooData = {
 
     hair_fall_rescue: {
         default: {
-            image: "hair_fall_rescue.png",
+            image: "hair_fall_rescue-T.webp",
             descriptions: [
                 {
                     title: "تقویت مو",
@@ -179,7 +179,7 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
         daily_moisture: {
-            image: "hair_fall_rescue_daily_moisture.png",
+            image: "hair_fall_rescue_daily_moisture.webp",
             descriptions: [
                 {
                     title: "تقویت مو",
@@ -194,7 +194,7 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
         intensive_repair: {
-            image: "hair_fall_rescue_intensive_repair.png",
+            image: "hair_fall_rescue_intensive_repair.webp",
             descriptions: [
                 {
                     title: "تقویت مو",
@@ -209,7 +209,7 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
         purifying: {
-            image: "hair_fall_rescue_purifying.png",
+            image: "hair_fall_rescue_purifying.webp",
             descriptions: [
                 {
                     title: "تقویت مو",
@@ -227,7 +227,7 @@ export const SHAMPOO_DATA: ShampooData = {
 
     intensive_repair: {
         default: {
-            image: "intensive_repair.png",
+            image: "intensive_repair-T.webp",
             descriptions: [
                 {
                     title: "ترمیم مو",
@@ -237,7 +237,7 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
         daily_moisture: {
-            image: "intensive_repair_daily_moisture.png",
+            image: "intensive_repair_daily_moisture.webp",
             descriptions: [
                 {
                     title: "ترمیم مو",
@@ -252,7 +252,7 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
         hair_fall_rescue: {
-            image: "intensive_repair_hair_fall_rescue.png",
+            image: "intensive_repair_hair_fall_rescue.webp",
             descriptions: [
                 {
                     title: "ترمیم مو",
@@ -267,7 +267,7 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
         purifying: {
-            image: "intensive_repair_purifying.png",
+            image: "intensive_repair_purifying.webp",
             descriptions: [
                 {
                     title: "ترمیم مو",
@@ -285,7 +285,7 @@ export const SHAMPOO_DATA: ShampooData = {
 
     purifying: {
         default: {
-            image: "purifying.png",
+            image: "purifying-T.webp",
             descriptions: [
                 {
                     title: "پاکسازی",
@@ -295,7 +295,7 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
         daily_moisture: {
-            image: "purifying_daily_moisture.png",
+            image: "purifying_daily_moisture.webp",
             descriptions: [
                 {
                     title: "پاکسازی",
@@ -310,7 +310,7 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
         hair_fall_rescue: {
-            image: "purifying_hair_fall_rescue.png",
+            image: "purifying_hair_fall_rescue.webp",
             descriptions: [
                 {
                     title: "پاکسازی",
@@ -325,7 +325,7 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
         intensive_repair: {
-            image: "purifying_intensive_repair.png",
+            image: "purifying_intensive_repair.webp",
             descriptions: [
                 {
                     title: "پاکسازی",

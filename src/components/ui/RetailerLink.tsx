@@ -45,7 +45,7 @@ export const RetailerLink: FC<RetailerLinkProps> = ({
         <div className="flex items-center justify-center gap-2 p-4">
             {hasDiscount && (
                 <img
-                    src="/offer.png" // 👈 replace with your badge/discount image path
+                    src="/offer.webp" // 👈 replace with your badge/discount image path
                     alt="دارای تخفیف"
                     className="h-6 object-contain"
                     loading="lazy"

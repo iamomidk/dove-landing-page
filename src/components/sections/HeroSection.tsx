@@ -11,13 +11,16 @@ export const HeroSection: FC = () => {
     }, []);
 
     const bgImage = isDesktop
-        ? "/dove-shampoo-conditioner-desktop.jpg"
-        : "/dove-shampoo-conditioner-mobile.jpg";
+        ? "/dove-shampoo-conditioner-desktop.webp"
+        : "/dove-shampoo-conditioner-mobile.webp";
+
+    // Calculate height based on aspect ratio
+    const aspectRatio = isDesktop ? 2362 / 3543 : 2362 / 1080; // height / width
 
     return (
         <section
             id="hero"
-            className="scroll-section relative w-full bg-cover bg-center bg-no-repeat flex items-center justify-center"
+            className="scroll-section relative w-full min-h-[100svh] bg-cover bg-center bg-no-repeat flex items-center justify-center"
             style={{backgroundImage: `url('${bgImage}')`}}
         />
     );

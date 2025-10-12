@@ -1,7 +1,7 @@
-import { type FC, useEffect, useState } from "react";
-import type { CtaSectionProps } from "../../types";
+import {type FC, useEffect, useState} from "react";
+import type {CtaSectionProps} from "../../types";
 
-export const CtaSection: FC<CtaSectionProps> = ({ onOpenModal }) => {
+export const CtaSection: FC<CtaSectionProps> = ({onOpenModal}) => {
     const [isDesktop, setIsDesktop] = useState(false);
 
     useEffect(() => {
@@ -11,25 +11,29 @@ export const CtaSection: FC<CtaSectionProps> = ({ onOpenModal }) => {
         return () => window.removeEventListener("resize", handleResize);
     }, []);
 
-    const bgImage = isDesktop ? "/cta_bg-desktop.jpg" : "/cta_bg-mobile.jpg";
+    const bgImage = isDesktop ? "/cta_bg-desktop.webp" : "/cta_bg-mobile.webp";
 
     return (
         <section
-            className="scroll-section relative w-full bg-cover bg-center bg-no-repeat flex items-center justify-center"
-            style={{ backgroundImage: `url('${bgImage}')` }}
+            className="scroll-section relative h-fit bg-cover bg-center bg-no-repeat flex items-center justify-center min-h-[100svh] px-4"
+            style={{backgroundImage: `url('${bgImage}')`}}
         >
-            <div className="relative z-10 w-full max-w-2xl mx-auto px-4 py-24 md:py-32 text-center flex flex-col items-center mb-96">
-                <h2 className="text-2xl md:text-4xl font-bold text-brand-blue leading-tight md:leading-snug">
+            <div
+                className="relative z-10 w-full max-w-2xl mx-auto px-4 py-24 md:py-32 text-center flex flex-col items-center mb-80">
+                <h2 className="text-2xl md:text-xl font-bold text-brand-blue leading-tight md:leading-snug">
                     داو باور داره زیبایی واقعی یعنی همونی که هستی
                 </h2>
-                <p className="text-gray-700 text-xl md:text-2xl font-semibold pt-6">
-                    پس با داو همراه شو؛ شامپوی هماهنگ با موهات رو پیدا کن. هم مراقبت، هم شانس شرکت در قرعه‌کشی.
+                <p className="text-gray-700 text-xl md:text-base font-medium pt-6">
+                    پس با داو همراه شو؛ شامپوی مناسب موهات رو پیدا کن.
+                </p>
+                <p className="text-gray-700 text-xl md:text-lg font-medium">
+                    هم مراقبت، هم شانس شرکت در قرعه‌کشی.
                 </p>
                 <button
                     onClick={onOpenModal}
                     className="brand-blue text-white font-bold py-3 px-12 mt-8 shadow-md hover:opacity-90 transition-opacity text-lg md:text-xl w-full md:w-auto"
                 >
-                    داستان موهای تو
+                    شامپو مناسب موهای تو
                 </button>
             </div>
         </section>

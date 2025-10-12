@@ -5,7 +5,7 @@ import { ProductCard } from "../ui/ProductCard";
 export const ProductSection: FC<ProductSectionProps> = ({ products }) => (
     <section
         id="intro-section"
-        className="bg-gray-100 py-16 px-4 mt-4"
+        className="bg-gray-100 py-16 px-4"
     >
         <div className="w-full max-w-6xl mx-auto">
             {/* Desktop grid: 3 columns, mobile scroll */}

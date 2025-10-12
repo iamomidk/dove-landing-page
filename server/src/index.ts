@@ -1,560 +1,602 @@
-/*
-// src/index.ts
 import "dotenv/config";
-import express, {NextFunction, Request, Response} from "express";
+import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
-import compression from "compression";
-import {nanoid} from "nanoid";
-import Kavenegar = require("kavenegar");
-import {z, ZodError} from "zod";
-import Redis from "ioredis";
-import {S3Client, GetObjectCommand} from "@aws-sdk/client-s3";
-import {getSignedUrl} from "@aws-sdk/s3-request-presigner";
-import pino from "pino";
-import pinoHttp from "pino-http";
-import createHttpError from "http-errors";
+import http from "http";
+import crypto from "crypto";
+import { Pool, PoolClient } from "pg";
+import { z } from "zod";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-/!* ------------------------------------
- * Config
- * ------------------------------------ *!/
-const PORT = Number(process.env.PORT || 4000);
-const OTP_TTL = Number(process.env.OTP_TTL_SECONDS ?? 300);
-const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS ?? 5);
-const SEND_LIMIT_PER_PHONE = Number(process.env.SEND_LIMIT_PER_PHONE ?? 3);
-const SEND_WINDOW_SECONDS = Number(process.env.SEND_WINDOW_SECONDS ?? 600);
-const SEND_LIMIT_PER_IP = Number(process.env.SEND_LIMIT_PER_IP ?? 10);
-const SEND_IP_WINDOW_SECONDS = Number(process.env.SEND_IP_WINDOW_SECONDS ?? 600);
-const VERIFY_LIMIT_PER_IP = Number(process.env.VERIFY_LIMIT_PER_IP ?? 30);
-const VERIFY_IP_WINDOW_SECONDS = Number(process.env.VERIFY_IP_WINDOW_SECONDS ?? 600);
-const OTP_SEND_MODE = (process.env.OTP_SEND_MODE || "kavenegar").toLowerCase(); // "kavenegar" | "log" | "mock"
-const ALLOW_WILDCARD = (process.env.ALLOW_WILDCARD || "true").toLowerCase() === "true";
-const IR_MOBILE = /^0?9\d{9}$/;
-const LOG_LEVEL = process.env.LOG_LEVEL || (process.env.NODE_ENV === "production" ? "info" : "debug");
+/* ============================== logging ============================== */
 
-/!* ------------------------------------
- * Logger
- * ------------------------------------ *!/
-const logger = pino({
-    level: LOG_LEVEL,
-    ...(process.env.NODE_ENV !== "production"
-        ? {
-            transport: {
-                target: "pino-pretty",
-                options: {colorize: true, translateTime: "SYS:standard", singleLine: true},
-            },
-        }
-        : {}),
-});
+type LogLevel = "debug" | "info" | "warn" | "error";
+const LOG_LEVEL: LogLevel = (process.env.LOG_LEVEL as LogLevel) || "info";
+const LEVEL_RANK: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 };
 
-/!* ------------------------------------
- * App & Middleware
- * ------------------------------------ *!/
-const app = express();
-app.set("trust proxy", true);
-app.disable("x-powered-by");
-
-// Structured request logging w/ requestId
-app.use(
-    pinoHttp({
-        logger,
-        genReqId: (req, res) => {
-            const hdr = req.headers["x-request-id"]?.toString();
-            const id = hdr || nanoid(12);
-            res.setHeader("X-Request-Id", id);
-            return id;
-        },
-        customLogLevel: (_req, res, err) => {
-            if (err || res.statusCode >= 500) return "error";
-            if (res.statusCode >= 400) return "warn";
-            return "info";
-        },
-        customSuccessMessage: (_req, res, responseTime) =>
-            `request completed with status ${res.statusCode} in ${responseTime}ms`,
-        customErrorMessage: (_req, res, _err) => `request errored with status ${res.statusCode}`,
-    })
-);
-
-// Attach a convenience child logger on res.locals
-app.use((req, res, next) => {
-    res.locals.requestId = (req as any).id;
-    res.locals.log = (req as any).log.child({requestId: res.locals.requestId});
-    next();
-});
-
-app.use(helmet());
-app.use(compression());
-app.use(express.json({limit: "10kb", type: ["application/json", "application/!*+json"]}));
-
-/!* ---------- CORS (smart + flexible allow-list with wildcard support) ---------- *!/
-function normalizeOrigin(o?: string | null) {
-    if (!o) return "";
-    try {
-        const url = new URL(o);
-        url.pathname = "";
-        // keep origin only (scheme + host + port)
-        return url.origin.toLowerCase();
-    } catch {
-        return o.trim().replace(/\/+$/, "").toLowerCase();
-    }
+function log(level: LogLevel, msg: string, meta: Record<string, unknown> = {}) {
+    if (LEVEL_RANK[level] < LEVEL_RANK[LOG_LEVEL]) return;
+    const line = { ts: new Date().toISOString(), level, msg, ...meta };
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify(line));
 }
 
-/!**
- * Process ALLOWED_ORIGINS env:
- * - comma-separated list of origins (e.g. https://dove-promo.liara.run, http://localhost:3000, *.liara.run)
- *!/
-const rawAllowlist = (process.env.ALLOWED_ORIGINS || "")
+function maskPhone(phone: string) {
+    const d = phone.replace(/\D/g, "");
+    if (d.length <= 4) return "****";
+    const tail = d.slice(-4);
+    const prefix = phone.startsWith("+") ? "+" : "";
+    return `${prefix}${d.slice(0, 2)}****${tail}`;
+}
+function maskCode(code: string) {
+    return code ? "***" : "";
+}
+
+/* ============================== env ============================== */
+
+const PORT = Number(process.env.PORT ?? 3000);
+const NODE_ENV = process.env.NODE_ENV ?? "production";
+
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "")
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
 
-const expandedAllowlist = Array.from(
-    new Set(
-        rawAllowlist.flatMap((origin) => {
-            // support wildcard pattern like *.liara.run — keep as-is for pattern matching
-            if (origin.startsWith("*.")) return [origin.toLowerCase()];
-            const n = normalizeOrigin(origin);
-            if (n.startsWith("http://")) return [n, n.replace("http://", "https://")];
-            if (n.startsWith("https://")) return [n, n.replace("https://", "http://")];
-            // if user passed host only, add both http/https
-            return ["http://" + n, "https://" + n];
-        })
-    )
-);
+const OTP_TTL_SECONDS = Number(process.env.OTP_TTL_SECONDS ?? 180);
+const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS ?? 5);
+const SEND_LIMIT_PER_PHONE = Number(process.env.SEND_LIMIT_PER_PHONE ?? 5);
+const SEND_WINDOW_SECONDS = Number(process.env.SEND_WINDOW_SECONDS ?? 3600);
+const SEND_LIMIT_PER_IP = Number(process.env.SEND_LIMIT_PER_IP ?? 30);
+const SEND_IP_WINDOW_SECONDS = Number(process.env.SEND_IP_WINDOW_SECONDS ?? 3600);
+const DEV_BYPASS_OTP = String(process.env.DEV_BYPASS_OTP ?? "false") === "true";
 
-/!** Check origin against allowlist (supports wildcard entries like *.liara.run when ALLOW_WILDCARD=true) *!/
-function isAllowedOrigin(origin?: string | null) {
-    if (!origin) return true; // server-to-server or same-origin
-    const clean = normalizeOrigin(origin);
-
-    if (expandedAllowlist.includes(clean)) return true;
-
-    if (ALLOW_WILDCARD) {
-        // check wildcard patterns in allowlist (*.domain.tld)
-        for (const entry of expandedAllowlist) {
-            if (entry.startsWith("*.")) {
-                try {
-                    const host = new URL(clean).hostname;
-                    const domain = entry.slice(2); // remove *.
-                    if (host === domain || host.endsWith("." + domain)) return true;
-                } catch {
-                    // ignore malformed origin
-                }
-            }
-        }
-    }
-
-    // also allow explicit liara.run subdomains as a safety net if ALLOW_WILDCARD is true
-    if (ALLOW_WILDCARD) {
-        try {
-            const host = new URL(clean).hostname;
-            if (host.endsWith(".liara.run")) return true;
-        } catch {
-            /!* ignore *!/
-        }
-    }
-
-    return false;
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+    log("error", "Missing env DATABASE_URL");
+    throw new Error("DATABASE_URL is required");
 }
 
-const corsOptions: cors.CorsOptions = {
-    origin(origin, callback) {
-        const log = logger.child({scope: "cors"});
-        const clean = normalizeOrigin(origin);
-        log.debug({origin, clean, allowlist: expandedAllowlist}, "CORS check");
+const S3_ENDPOINT = process.env.S3_ENDPOINT;
+const S3_REGION = process.env.S3_REGION ?? "us-east-1";
+const S3_BUCKET = process.env.S3_BUCKET;
+const S3_ACCESS_KEY_ID = process.env.S3_ACCESS_KEY_ID;
+const S3_SECRET_ACCESS_KEY = process.env.S3_SECRET_ACCESS_KEY;
+const S3_FORCE_PATH_STYLE = String(process.env.S3_FORCE_PATH_STYLE ?? "false") === "true";
 
-        if (isAllowedOrigin(origin)) {
-            return callback(null, true);
-        }
+const PUBLIC_VIDEO_BASE = process.env.PUBLIC_VIDEO_BASE;
 
-        log.warn({origin, clean}, "CORS rejected");
-        const err = Object.assign(new Error(`CORS: Origin ${origin} not allowed`), {status: 403});
-        callback(err as any);
-    },
-    methods: ["GET", "HEAD", "OPTIONS", "POST"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id"],
-    credentials: false,
-    maxAge: 86400,
-};
+const KAVENEGAR_API_KEY = process.env.KAVENEGAR_API_KEY || "";
+const KAVENEGAR_TEMPLATE = process.env.KAVENEGAR_TEMPLATE || "";
+const KAVENEGAR_SENDER = process.env.KAVENEGAR_SENDER || "";
 
-logger.info({allowlist: expandedAllowlist, allowWildcard: ALLOW_WILDCARD}, "CORS allowlist (expanded)");
-app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
-app.use((_, res, next) => {
-    res.header("Vary", "Origin");
+/* ============================== infra ============================== */
+
+const pool = new Pool({ connectionString: DATABASE_URL });
+
+const s3 = new S3Client({
+    region: S3_REGION,
+    endpoint: S3_ENDPOINT,
+    forcePathStyle: S3_FORCE_PATH_STYLE,
+    credentials:
+        S3_ACCESS_KEY_ID && S3_SECRET_ACCESS_KEY
+            ? { accessKeyId: S3_ACCESS_KEY_ID, secretAccessKey: S3_SECRET_ACCESS_KEY }
+            : undefined,
+});
+
+/* ============================== app setup ============================== */
+
+const app = express();
+app.disable("x-powered-by");
+app.use(helmet());
+app.use(express.json({ limit: "1mb" }));
+
+// request id + timing
+app.use((req, res, next) => {
+    const start = process.hrtime.bigint();
+    const reqId = (req.headers["x-request-id"] as string) || crypto.randomUUID();
+    (req as any).reqId = reqId;
+    res.setHeader("x-request-id", reqId);
+
+    log("info", "req:start", {
+        reqId,
+        method: req.method,
+        path: req.originalUrl || req.url,
+        ip: (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress,
+        ua: req.headers["user-agent"],
+    });
+
+    const end = () => {
+        const durMs = Number((process.hrtime.bigint() - start) / 1000000n);
+        log("info", "req:end", {
+            reqId,
+            status: res.statusCode,
+            bytesSent: (res as any)._contentLength || res.getHeader("content-length") || null,
+            durMs,
+        });
+    };
+    res.on("finish", end);
+    res.on("close", end);
     next();
 });
 
-/!* ------------------------------------
- * Redis
- * ------------------------------------ *!/
-const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
-const redis = new Redis(REDIS_URL);
-redis.on("connect", () => logger.info("✅ Redis connected"));
-redis.on("ready", () => logger.debug("Redis ready"));
-redis.on("reconnecting", () => logger.warn("Redis reconnecting..."));
-redis.on("end", () => logger.warn("Redis connection closed"));
-redis.on("error", (e) => logger.error({err: e}, "❌ Redis error"));
+// CORS with safe local types + decision logs
+type OriginCallback = (err: Error | null, allow?: boolean) => void;
+const originFn = (requestOrigin: string | undefined, callback: OriginCallback) => {
+    const normalized = requestOrigin?.replace(/\/$/, "");
+    const allow = !requestOrigin || ALLOWED_ORIGINS.includes(requestOrigin) || (normalized ? ALLOWED_ORIGINS.includes(normalized) : false);
+    log("debug", "cors:decision", { origin: requestOrigin || null, allow });
+    if (allow) return callback(null, true);
+    return callback(new Error("Not allowed by CORS"));
+};
+app.use(
+    cors({
+        origin: originFn,
+        credentials: false,
+    })
+);
 
-/!* ------------------------------------
- * Kavenegar
- * ------------------------------------ *!/
-const kavenegar =
-    OTP_SEND_MODE === "kavenegar" && process.env.KAVENEGAR_API_KEY
-        ? Kavenegar.KavenegarApi({apikey: process.env.KAVENEGAR_API_KEY})
-        : null;
+/* ============================== helpers ============================== */
 
-/!* ------------------------------------
- * Liara S3
- * ------------------------------------ *!/
-function requireEnv(name: string): string {
-    const v = process.env[name];
-    if (!v) throw new Error(`Missing required env var: ${name}`);
-    return v;
+const phoneE164 = z.string().regex(/^\+?\d{8,15}$/);
+
+function random4(): string {
+    return Math.floor(1000 + Math.random() * 9000).toString();
 }
 
-const LIARA_ENDPOINT = process.env.LIARA_ENDPOINT || "";
-const LIARA_BUCKET_NAME = process.env.LIARA_BUCKET_NAME || "";
-const LIARA_ACCESS_KEY = process.env.LIARA_ACCESS_KEY || "";
-const LIARA_SECRET_KEY = process.env.LIARA_SECRET_KEY || "";
-const LIARA_REGION = process.env.LIARA_REGION ?? "default";
+async function withClient<T>(fn: (c: PoolClient) => Promise<T>): Promise<T> {
+    const c = await pool.connect();
+    try {
+        return await fn(c);
+    } finally {
+        c.release();
+    }
+}
 
-export const s3 =
-    LIARA_ENDPOINT && LIARA_BUCKET_NAME
-        ? new S3Client({
-            region: LIARA_REGION,
-            endpoint: LIARA_ENDPOINT,
-            credentials: {accessKeyId: LIARA_ACCESS_KEY, secretAccessKey: LIARA_SECRET_KEY},
-            forcePathStyle: true,
-        })
-        : null;
+/** rate limiting logs included */
+async function checkRateLimits(client: PoolClient, phone: string, ip: string) {
+    log("debug", "ratelimit:check:start", { phone: maskPhone(phone), ip });
+    await client.query(`
+    CREATE TABLE IF NOT EXISTS otp_send_log (
+      id BIGINT,
+      phone TEXT,
+      ip TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
 
-/!* ------------------------------------
- * Helpers & Validation
- * ------------------------------------ *!/
-const phoneSchema = z.object({phone: z.string().regex(IR_MOBILE)});
-const sendSchema = phoneSchema.extend({fullName: z.string().min(2)});
-const verifySchema = phoneSchema.extend({code: z.string().length(4).regex(/^\d{4}$/)});
-const videoQuerySchema = z.object({key: z.string().min(1).refine((v) => !v.includes(".."), "invalid key")});
-
-const normPhone = (p: string) => (p.startsWith("0") ? p : `0${p}`);
-const genCode = () => String(Math.floor(1000 + Math.random() * 9000));
-const clientIp = (req: Request) =>
-    (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "0.0.0.0";
-
-const ah =
-    (fn: (req: Request, res: Response, next: NextFunction) => Promise<any> | any) =>
-        (req: Request, res: Response, next: NextFunction) =>
-            Promise.resolve(fn(req, res, next)).catch(next);
-
-async function rateLimitHit(key: string, limit: number, windowSec: number) {
-    const script = `
-    local c = redis.call("INCR", KEYS[1])
-    if c == 1 then redis.call("EXPIRE", KEYS[1], ARGV[1]) end
-    return c
+    const q = `
+    WITH windows AS (
+      SELECT $1::int AS phone_win, $2::int AS ip_win
+    )
+    SELECT
+      COUNT(*) FILTER (WHERE phone = $3 AND created_at >= NOW() - (SELECT phone_win * INTERVAL '1 second' FROM windows)) AS phone_cnt,
+      COUNT(*) FILTER (WHERE ip = $4 AND created_at >= NOW() - (SELECT ip_win * INTERVAL '1 second' FROM windows)) AS ip_cnt
+    FROM otp_send_log
   `;
-    // @ts-ignore — ioredis eval typing
-    const count = await (redis as any).eval(script, 1, key, windowSec);
-    return Number(count) > limit;
+    const { rows } = await client.query(q, [SEND_WINDOW_SECONDS, SEND_IP_WINDOW_SECONDS, phone, ip]);
+    const row = rows[0] ?? { phone_cnt: 0, ip_cnt: 0 };
+    log("debug", "ratelimit:check:counts", { phoneCnt: Number(row.phone_cnt), ipCnt: Number(row.ip_cnt) });
+    if (Number(row.phone_cnt) >= SEND_LIMIT_PER_PHONE) throw new Error("تعداد درخواست بیش از حد برای این شماره");
+    if (Number(row.ip_cnt) >= SEND_LIMIT_PER_IP) throw new Error("تعداد درخواست‌های شما بیش از حد مجاز است");
+    log("debug", "ratelimit:check:ok");
 }
 
-// Redis keys
-const kOtp = (p: string) => `otp:${p}:code`;
-const kExp = (p: string) => `otp:${p}:exp`;
-const kAtt = (p: string) => `otp:${p}:attempts`;
-const kSendPhone = (p: string) => `rl:send:phone:${p}`;
-const kSendIp = (addr: string) => `rl:send:ip:${addr}`;
-const kVerifyIp = (addr: string) => `rl:verify:ip:${addr}`;
+/** Kavenegar utils & logs */
+function e164ToKavenegarReceptor(e164: string): string {
+    const digits = e164.replace(/\D/g, "");
+    if (digits.startsWith("98")) return "0" + digits.slice(2);
+    return digits;
+}
 
-/!* ------------------------------------
- * SMS send helper
- * ------------------------------------ *!/
-function sendSms({
-                     receptor,
-                     token,
-                     template,
-                 }: {
-    receptor: string;
-    token: string;
-    template: string;
-}) {
-    const log = logger.child({scope: "sms", receptor, template});
-    if (OTP_SEND_MODE === "mock") {
-        log.info({token}, "🔔 [MOCK SMS]");
-        return Promise.resolve();
+async function sendOtpViaKavenegarVerifyLookup(e164Phone: string, code: string, reqId: string) {
+    if (!KAVENEGAR_API_KEY || !KAVENEGAR_TEMPLATE) throw new Error("Kavenegar API key/template missing");
+    const receptor = e164ToKavenegarReceptor(e164Phone);
+    const body = new URLSearchParams({ receptor, token: code, template: KAVENEGAR_TEMPLATE });
+    const url = `https://api.kavenegar.com/v1/${KAVENEGAR_API_KEY}/verify/lookup.json`;
+
+    const t0 = Date.now();
+    log("info", "kavenegar:verify:request", { reqId, receptor: maskPhone(receptor), code: maskCode(code) });
+    const resp = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body });
+    const t1 = Date.now();
+    let data: any = {};
+    try {
+        data = await resp.json();
+    } catch {}
+    log("info", "kavenegar:verify:response", {
+        reqId, status: resp.status, ok: resp.ok, durMs: t1 - t0, kStatus: data?.return?.status, kMessage: data?.return?.message,
+    });
+    if (!resp.ok || data?.return?.status !== 200) {
+        throw new Error(data?.return?.message || "Kavenegar VerifyLookup failed");
     }
-    if (OTP_SEND_MODE === "log") {
-        log.info({token}, "🔔 [LOG SMS] (no external call)");
-        return Promise.resolve();
+    return data;
+}
+
+async function sendOtpViaKavenegarSms(e164Phone: string, code: string, reqId: string) {
+    if (!KAVENEGAR_API_KEY) throw new Error("Kavenegar API key missing");
+    const receptor = e164ToKavenegarReceptor(e164Phone);
+    const message = `کد تایید شما: ${code}`;
+    const body = new URLSearchParams({ receptor, message });
+    if (KAVENEGAR_SENDER) body.set("sender", KAVENEGAR_SENDER);
+    const url = `https://api.kavenegar.com/v1/${KAVENEGAR_API_KEY}/sms/send.json`;
+
+    const t0 = Date.now();
+    log("info", "kavenegar:sms:request", { reqId, receptor: maskPhone(receptor), msgLen: message.length });
+    const resp = await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body });
+    const t1 = Date.now();
+    let data: any = {};
+    try {
+        data = await resp.json();
+    } catch {}
+    log("info", "kavenegar:sms:response", {
+        reqId, status: resp.status, ok: resp.ok, durMs: t1 - t0, kStatus: data?.return?.status, kMessage: data?.return?.message,
+    });
+    if (!resp.ok || data?.return?.status !== 200) {
+        throw new Error(data?.return?.message || "Kavenegar SMS send failed");
     }
+    return data;
+}
 
-    if (!kavenegar) {
-        const err = new Error("SMS provider not configured");
-        log.error({err}, "SMS send failed - provider missing");
-        return Promise.reject(err);
+/* ============================== bootstrap (final, robust) ============================== */
+
+async function bootstrap() {
+    const tag = "bootstrap";
+    log("info", `${tag}:start:pk-migration-check`, {
+        node: process.version,
+        env: NODE_ENV,
+        port: PORT,
+        logLevel: LOG_LEVEL,
+        corsOrigins: ALLOWED_ORIGINS,
+    });
+
+    await withClient(async (c) => {
+        // Ensure base tables
+        await c.query(`
+      CREATE TABLE IF NOT EXISTS app_users (
+        phone TEXT PRIMARY KEY,
+        full_name TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS otps (
+        id BIGINT,
+        phone TEXT,
+        code TEXT,
+        expires_at TIMESTAMPTZ,
+        attempts INT NOT NULL DEFAULT 0,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS otp_send_log (
+        id BIGINT,
+        phone TEXT,
+        ip TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+        // Ensure columns (idempotent)
+        await c.query(`
+      ALTER TABLE app_users
+        ADD COLUMN IF NOT EXISTS full_name TEXT,
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+      ALTER TABLE otps
+        ADD COLUMN IF NOT EXISTS id BIGINT,
+        ADD COLUMN IF NOT EXISTS phone TEXT,
+        ADD COLUMN IF NOT EXISTS code TEXT,
+        ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS attempts INT NOT NULL DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+      ALTER TABLE otp_send_log
+        ADD COLUMN IF NOT EXISTS id BIGINT,
+        ADD COLUMN IF NOT EXISTS phone TEXT,
+        ADD COLUMN IF NOT EXISTS ip TEXT,
+        ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    `);
+
+        // Detect PK on phone (robust) + PK name
+        log("info", `${tag}:detect-otps-pk`);
+        const { rows: pkPhoneRows } = await c.query<{ pk_on_phone: boolean; pk_name: string | null }>(`
+      SELECT
+        EXISTS (
+          SELECT 1
+          FROM pg_constraint pc
+          JOIN LATERAL unnest(pc.conkey) AS k(attnum) ON TRUE
+          JOIN pg_attribute a ON a.attrelid = pc.conrelid AND a.attnum = k.attnum
+          WHERE pc.conrelid = 'otps'::regclass
+            AND pc.contype = 'p'
+            AND a.attname = 'phone'
+        ) AS pk_on_phone,
+        (
+          SELECT conname
+          FROM pg_constraint
+          WHERE conrelid = 'otps'::regclass AND contype = 'p'
+          LIMIT 1
+        ) AS pk_name
+    `);
+        const pkOnPhone = !!pkPhoneRows[0]?.pk_on_phone;
+        const pkName = pkPhoneRows[0]?.pk_name || null;
+        log("info", `${tag}:otps-pk`, { pkOnPhone, pkName });
+
+        // Ensure sequences & sync (is_called=true so nextval > max)
+        log("info", `${tag}:sequences:sync`);
+        await c.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'otps_id_seq') THEN
+          CREATE SEQUENCE otps_id_seq;
+          RAISE NOTICE 'created sequence otps_id_seq';
+        END IF;
+        PERFORM setval('otps_id_seq', COALESCE((SELECT MAX(id) FROM otps), 0), true);
+        ALTER TABLE otps ALTER COLUMN id SET DEFAULT nextval('otps_id_seq');
+
+        IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'otp_send_log_id_seq') THEN
+          CREATE SEQUENCE otp_send_log_id_seq;
+          RAISE NOTICE 'created sequence otp_send_log_id_seq';
+        END IF;
+        PERFORM setval('otp_send_log_id_seq', COALESCE((SELECT MAX(id) FROM otp_send_log), 0), true);
+        ALTER TABLE otp_send_log ALTER COLUMN id SET DEFAULT nextval('otp_send_log_id_seq');
+      END
+      $$;
+    `);
+
+        // Normalize IDs (dedupe & fill) before touching constraints
+        log("info", `${tag}:dedupe/backfill-ids`);
+        await c.query(`
+      WITH d AS (
+        SELECT ctid, id, ROW_NUMBER() OVER (PARTITION BY id ORDER BY ctid) AS rn
+        FROM otps WHERE id IS NOT NULL
+      )
+      UPDATE otps o
+      SET id = nextval('otps_id_seq')
+      FROM d
+      WHERE o.ctid = d.ctid AND d.rn > 1;
+
+      UPDATE otps SET id = nextval('otps_id_seq') WHERE id IS NULL;
+
+      WITH d AS (
+        SELECT ctid, id, ROW_NUMBER() OVER (PARTITION BY id ORDER BY ctid) AS rn
+        FROM otp_send_log WHERE id IS NOT NULL
+      )
+      UPDATE otp_send_log o
+      SET id = nextval('otp_send_log_id_seq')
+      FROM d
+      WHERE o.ctid = d.ctid AND d.rn > 1;
+
+      UPDATE otp_send_log SET id = nextval('otp_send_log_id_seq') WHERE id IS NULL;
+    `);
+
+        // If PK was on phone → migrate to id
+        if (pkOnPhone && pkName) {
+            log("warn", `${tag}:migrating-otps-pk-from-phone-to-id`, { pkName });
+            await c.query(`ALTER TABLE otps DROP CONSTRAINT ${pkName};`);
+            await c.query(`ALTER TABLE otps ADD PRIMARY KEY (id);`);
+            log("info", `${tag}:otps-pk-now-id`);
+        } else {
+            // Ensure strong uniqueness on id either way
+            log("info", `${tag}:ensure-otps-id-unique`);
+            await c.query(`
+        DO $$
+        DECLARE pk_count INTEGER;
+        BEGIN
+          SELECT COUNT(*) INTO pk_count
+          FROM pg_constraint
+          WHERE conrelid = 'otps'::regclass AND contype = 'p';
+          IF pk_count = 0 THEN
+            ALTER TABLE otps ADD PRIMARY KEY (id);
+          ELSE
+            IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'otps_id_unique') THEN
+              CREATE UNIQUE INDEX otps_id_unique ON otps(id);
+            END IF;
+          END IF;
+        END$$;
+      `);
+        }
+
+        // Helpful indexes (idempotent)
+        await c.query(`CREATE INDEX IF NOT EXISTS otps_phone_idx ON otps(phone);`);
+        await c.query(`CREATE INDEX IF NOT EXISTS otps_created_at_idx ON otps(created_at);`);
+        await c.query(`CREATE INDEX IF NOT EXISTS otp_send_log_phone_idx ON otp_send_log(phone);`);
+        await c.query(`CREATE INDEX IF NOT EXISTS otp_send_log_created_at_idx ON otp_send_log(created_at);`);
+
+        log("info", `${tag}:done`);
+    });
+}
+
+/* ============================== routes ============================== */
+
+app.get("/health", (req: Request, res: Response) => {
+    res.json({ ok: true, ts: new Date().toISOString() });
+});
+
+/** POST /api/otp/send { phone, fullName } */
+app.post("/api/otp/send", async (req: Request, res: Response) => {
+    const reqId = (req as any).reqId as string;
+    try {
+        const bodySchema = z.object({ phone: phoneE164, fullName: z.string().min(1).max(200) });
+        const { phone, fullName } = bodySchema.parse(req.body);
+        const ip =
+            (typeof req.headers["x-forwarded-for"] === "string"
+                ? req.headers["x-forwarded-for"]?.split(",")[0]?.trim()
+                : Array.isArray(req.headers["x-forwarded-for"])
+                    ? req.headers["x-forwarded-for"][0]
+                    : undefined) ||
+            req.socket.remoteAddress ||
+            "0.0.0.0";
+
+        log("info", "otp:send:start", { reqId, phone: maskPhone(phone), ip });
+
+        await withClient(async (c) => {
+            await checkRateLimits(c, phone, ip);
+
+            await c.query(
+                `INSERT INTO app_users (phone, full_name)
+         VALUES ($1, $2)
+         ON CONFLICT (phone) DO UPDATE SET full_name = EXCLUDED.full_name`,
+                [phone, fullName]
+            );
+
+            const code = DEV_BYPASS_OTP ? "1111" : random4();
+            const expiresAt = new Date(Date.now() + OTP_TTL_SECONDS * 1000);
+
+            // ⬇️ explicit DEFAULT for id uses otps_id_seq (avoids legacy defaults)
+            await c.query(
+                `INSERT INTO otps (id, phone, code, expires_at, attempts, created_at)
+         VALUES (DEFAULT, $1, $2, $3, 0, NOW())`,
+                [phone, code, expiresAt]
+            );
+
+            await c.query(`INSERT INTO otp_send_log (id, phone, ip, created_at) VALUES (DEFAULT, $1, $2, NOW())`, [phone, ip]);
+
+            if (DEV_BYPASS_OTP) {
+                log("warn", "otp:send:dev-bypass", { reqId, phone: maskPhone(phone), code });
+            } else {
+                try {
+                    await sendOtpViaKavenegarVerifyLookup(phone, code, reqId);
+                } catch (e: any) {
+                    log("warn", "kavenegar:verify:failed:falling-back-to-sms", { reqId, err: e?.message });
+                    await sendOtpViaKavenegarSms(phone, code, reqId);
+                }
+            }
+        });
+
+        log("info", "otp:send:ok", { reqId, ttl: OTP_TTL_SECONDS });
+        res.json({ ok: true /* ttl: OTP_TTL_SECONDS */ });
+    } catch (err: any) {
+        log("error", "otp:send:error", { reqId, err: err?.message });
+        res.status(400).json({ ok: false, error: err?.message ?? "Bad Request" });
     }
+});
 
-    return new Promise<void>((resolve, reject) => {
-        const start = Date.now();
-        const timer = setTimeout(() => {
-            const err = new Error("Kavenegar timeout");
-            log.error({err, ms: Date.now() - start}, "SMS send failed");
-            reject(err);
-        }, 10_000);
+/** POST /api/otp/verify { phone, code } */
+app.post("/api/otp/verify", async (req: Request, res: Response) => {
+    const reqId = (req as any).reqId as string;
+    try {
+        const bodySchema = z.object({ phone: phoneE164, code: z.string().regex(/^\d{4}$/) });
+        const { phone, code } = bodySchema.parse(req.body);
+        log("info", "otp:verify:start", { reqId, phone: maskPhone(phone), code: maskCode(code) });
 
-        kavenegar.VerifyLookup({receptor, token, template}, (resp: any, status: number) => {
-            clearTimeout(timer);
-            const ms = Date.now() - start;
+        const result = await withClient(async (c) => {
+            const { rows } = await c.query(
+                `SELECT * FROM otps
+         WHERE phone = $1
+         ORDER BY created_at DESC
+         LIMIT 1`,
+                [phone]
+            );
+            const row = rows[0];
+            if (!row) throw new Error("کدی برای این شماره یافت نشد");
+            if (new Date(row.expires_at).getTime() < Date.now()) throw new Error("کد منقضی شده است");
+            if (Number(row.attempts) >= OTP_MAX_ATTEMPTS) throw new Error("تعداد تلاش‌ها بیش از حد مجاز است");
 
-            const kStatus = resp?.return?.status; // Kavenegar business status (e.g., 200, 426, ...)
-            const kMessage = resp?.return?.message; // Human-readable message from Kavenegar
-
-            const okTransport = status >= 200 && status < 300;
-            const okBusiness = kStatus === 200;
-
-            if (okTransport && okBusiness) {
-                log.info({status, kStatus, kMessage, ms}, "SMS sent");
-                return resolve();
+            if (row.code !== code && !DEV_BYPASS_OTP) {
+                await c.query(`UPDATE otps SET attempts = attempts + 1 WHERE id = $1`, [row.id]);
+                throw new Error("کد وارد شده صحیح نیست");
             }
 
-            const err: any = Object.assign(new Error("sms send failed"), {
-                status,
-                kStatus,
-                kMessage,
-                resp,
-            });
-            log.error({err, status, kStatus, kMessage, ms}, "SMS send failed");
-            reject(err);
+            await c.query(`DELETE FROM otps WHERE id = $1`, [row.id]);
+
+            const u = await c.query(`SELECT phone, full_name FROM app_users WHERE phone = $1`, [phone]);
+            return u.rows[0] ?? { phone, full_name: null as string | null };
         });
+
+        log("info", "otp:verify:ok", { reqId, phone: maskPhone(phone) });
+        res.json({ ok: true, user: result });
+    } catch (err: any) {
+        log("error", "otp:verify:error", { reqId, err: err?.message });
+        res.status(400).json({ ok: false, error: err?.message ?? "Bad Request" });
+    }
+});
+
+/** GET /api/video-url/signed/:key */
+app.get("/api/video-url/signed/:key", async (req: Request, res: Response) => {
+    const reqId = (req as any).reqId as string;
+    try {
+        if (!S3_BUCKET) throw new Error("S3_BUCKET is not configured");
+        const key = decodeURIComponent(req.params.key);
+        const expires = Math.min(Number(req.query.expires ?? 600), 3600);
+        const disposition = String(req.query.disposition ?? "inline");
+        const filename = String(req.query.filename ?? key.split("/").pop() ?? "file");
+
+        log("info", "video:signed:start", { reqId, key, expires, disposition, filename });
+
+        const command = new GetObjectCommand({
+            Bucket: S3_BUCKET,
+            Key: key,
+            ResponseContentDisposition: `${disposition}; filename="${filename}"`,
+        });
+
+        const t0 = Date.now();
+        const url = await getSignedUrl(s3, command, { expiresIn: expires });
+        const durMs = Date.now() - t0;
+
+        log("info", "video:signed:ok", { reqId, durMs });
+        res.json({ ok: true, url });
+    } catch (err: any) {
+        log("error", "video:signed:error", { reqId, err: err?.message });
+        res.status(400).json({ ok: false, error: err?.message ?? "Bad Request" });
+    }
+});
+
+/** GET /api/video-url/static/:file */
+app.get("/api/video-url/static/:file", async (req: Request, res: Response) => {
+    const reqId = (req as any).reqId as string;
+    try {
+        if (!PUBLIC_VIDEO_BASE) throw new Error("PUBLIC_VIDEO_BASE is not set");
+        const file = encodeURIComponent(req.params.file);
+        const url = `${PUBLIC_VIDEO_BASE}/${file}`;
+        log("info", "video:static:ok", { reqId, file });
+        res.json({ ok: true, url });
+    } catch (err: any) {
+        log("error", "video:static:error", { reqId, err: err?.message });
+        res.status(400).json({ ok: false, error: err?.message ?? "Bad Request" });
+    }
+});
+
+/* ============================== errors & start ============================== */
+
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
+    const reqId = (req as any).reqId as string;
+    const msg = (err as Error)?.message || "Internal Server Error";
+    const status = /CORS/i.test(msg) ? 403 : 500;
+    log("error", "unhandled:error", { reqId, status, err: msg });
+    res.status(status).json({ ok: false, error: msg, reqId });
+});
+
+const server = http.createServer(app);
+
+bootstrap()
+    .then(() => {
+        server.listen(PORT, () => {
+            log("info", "server:listening", { port: PORT, env: NODE_ENV, corsOrigins: ALLOWED_ORIGINS });
+        });
+    })
+    .catch((err) => {
+        log("error", "bootstrap:failed", { err: (err as Error)?.message });
+        process.exit(1);
     });
-}
-
-/!* ------------------------------------
- * Routes
- * ------------------------------------ *!/
-
-// Liveness
-app.get("/health", ah(async (_req: Request, res: Response) => res.status(200).send("ok")));
-
-// Readiness (checks Redis)
-app.get("/ready", ah(async (_req: Request, res: Response) => {
-    try {
-        const pong = await redis.ping();
-        if (pong !== "PONG") return res.status(503).json({ok: false});
-        res.json({ok: true});
-    } catch (e) {
-        res.status(503).json({ok: false, error: "redis unavailable"});
-    }
-}));
-
-// Signed video URL (optional)
-app.get("/api/video-url", ah(async (req: Request, res: Response) => {
-    const parse = videoQuerySchema.safeParse({key: req.query.key ?? "input.mp4"});
-    if (!parse.success) throw createHttpError(400, "bad key", {errors: parse.error.flatten()});
-
-    const key = parse.data.key;
-    const log = res.locals.log.child({scope: "video", key});
-    log.debug("Generating signed URL");
-
-    if (!s3) throw createHttpError(500, "S3 not configured");
-
-    const cmd = new GetObjectCommand({Bucket: process.env.LIARA_BUCKET_NAME!, Key: key});
-    const url = await getSignedUrl(s3, cmd, {expiresIn: 60});
-    res.setHeader("Cache-Control", "private, max-age=30");
-    log.info({expiresIn: 60}, "Signed URL generated");
-    res.json({url});
-}));
-
-// Send OTP
-app.post("/api/otp/send", ah(async (req: Request, res: Response) => {
-    const parsed = sendSchema.safeParse(req.body);
-    if (!parsed.success) throw createHttpError(400, "Bad payload", {errors: parsed.error.flatten()});
-
-    const phone = normPhone(parsed.data.phone);
-    const fullName = parsed.data.fullName;
-    const ip = clientIp(req);
-    const log = res.locals.log.child({scope: "otp_send", phone, ip});
-
-    // Rate limits
-    if (await rateLimitHit(kSendPhone(phone), SEND_LIMIT_PER_PHONE, SEND_WINDOW_SECONDS)) {
-        log.warn({limit: SEND_LIMIT_PER_PHONE, window: SEND_WINDOW_SECONDS}, "Phone rate limit hit");
-        throw createHttpError(429, "ارسال بیش از حد، لطفا بعدا تلاش کنید.");
-    }
-    if (await rateLimitHit(kSendIp(ip), SEND_LIMIT_PER_IP, SEND_IP_WINDOW_SECONDS)) {
-        log.warn({limit: SEND_LIMIT_PER_IP, window: SEND_IP_WINDOW_SECONDS}, "IP rate limit hit (send)");
-        throw createHttpError(429, "تعداد درخواست زیاد از IP، لطفا بعدا تلاش کنید.");
-    }
-
-    const code = genCode();
-    const expiresAt = Date.now() + OTP_TTL * 1000;
-
-    await Promise.all([
-        redis.set(kOtp(phone), code, "EX", OTP_TTL),
-        redis.set(kExp(phone), String(expiresAt), "EX", OTP_TTL),
-        redis.del(kAtt(phone)),
-    ]);
-
-    log.info({fullName, ttl: OTP_TTL}, "OTP generated");
-
-    try {
-        await sendSms({
-            receptor: phone,
-            token: code,
-            template: process.env.OTP_TEMPLATE_NAME || "dove-otp",
-        });
-    } catch (e) {
-        // Revert OTP state on failure
-        await redis.del(kOtp(phone), kExp(phone), kAtt(phone));
-        log.error({err: e}, "SMS send failed — OTP state reverted");
-        // expose a friendly error
-        throw createHttpError(502, "مشکل در ارسال پیامک");
-    }
-
-    res.json({ok: true, ttl: OTP_TTL});
-}));
-
-// Verify OTP
-app.post("/api/otp/verify", ah(async (req: Request, res: Response) => {
-    const parsed = verifySchema.safeParse(req.body);
-    if (!parsed.success) throw createHttpError(400, "Bad payload", {errors: parsed.error.flatten()});
-
-    const phone = normPhone(parsed.data.phone);
-    const codeAttempt = parsed.data.code;
-    const ip = clientIp(req);
-    const log = res.locals.log.child({scope: "otp_verify", phone, ip});
-
-    if (await rateLimitHit(kVerifyIp(ip), VERIFY_LIMIT_PER_IP, VERIFY_IP_WINDOW_SECONDS)) {
-        log.warn({limit: VERIFY_LIMIT_PER_IP, window: VERIFY_IP_WINDOW_SECONDS}, "IP rate limit hit (verify)");
-        throw createHttpError(429, "تلاش‌های زیاد، لطفا بعدا تلاش کنید.");
-    }
-
-    const [code, expStr] = await redis.mget(kOtp(phone), kExp(phone));
-    if (!code || !expStr) {
-        log.warn("Verify failed — code missing or expired");
-        throw createHttpError(400, "کد منقضی شده یا ارسال نشده است");
-    }
-
-    if (Date.now() > Number(expStr)) {
-        await redis.del(kOtp(phone), kExp(phone), kAtt(phone));
-        log.warn("Verify failed — code expired");
-        throw createHttpError(400, "کد منقضی شده است");
-    }
-
-    const attempts = Number((await redis.get(kAtt(phone))) || 0);
-    if (attempts >= OTP_MAX_ATTEMPTS) {
-        await redis.del(kOtp(phone), kExp(phone), kAtt(phone));
-        log.warn({attempts}, "Verify failed — too many attempts");
-        throw createHttpError(429, "تلاش‌های بیش از حد");
-    }
-
-    if (codeAttempt !== code) {
-        await redis.incr(kAtt(phone));
-        await redis.expire(kAtt(phone), Math.max(30, Math.min(OTP_TTL, 300)));
-        log.warn({attempts: attempts + 1}, "Verify failed — wrong code");
-        throw createHttpError(400, "کد وارد شده نادرست است");
-    }
-
-    await redis.del(kOtp(phone), kExp(phone), kAtt(phone));
-    log.info("OTP verified");
-    res.json({ok: true});
-}));
-
-/!* ------------------------------------
- * 404 Not Found (after routes)
- * ------------------------------------ *!/
-app.use((req, _res, next) => {
-    next(createHttpError(404, `Route not found: ${req.method} ${req.originalUrl}`));
-});
-
-/!* ------------------------------------
- * Error handler (last)
- * ------------------------------------ *!/
-app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
-    const id = res.locals.requestId || (req as any).id;
-    const log = res.locals.log || logger;
-
-    // Zod errors => 400 with details
-    if (err instanceof ZodError) {
-        log.warn({err}, "Validation error");
-        return res.status(400).json({
-            ok: false,
-            error: "Validation failed",
-            details: err.flatten(),
-            requestId: id,
-        });
-    }
-
-    const status = typeof err?.status === "number" ? err.status : 500;
-
-    // Avoid leaking internals in production
-    const isProd = process.env.NODE_ENV === "production";
-    const payload: Record<string, any> = {
-        ok: false,
-        error: isProd && status >= 500 ? "Internal Server Error" : err?.message || "Error",
-        requestId: id,
-    };
-
-    if (!isProd && err?.errors) payload.details = err.errors; // e.g., from http-errors
-    if (!isProd && status >= 500 && err?.stack) payload.stack = err.stack;
-
-    if (status >= 500) {
-        log.error({err, status}, "💥 Server error");
-    } else {
-        log.warn({err, status}, "Handled error");
-    }
-
-    // ensure CORS header is present even on errors (cors middleware should already add it,
-    // but we add it explicitly as a last resort)
-    try {
-        const origin = req.headers.origin as string | undefined;
-        if (origin && isAllowedOrigin(origin)) {
-            res.setHeader("Access-Control-Allow-Origin", origin);
-            res.setHeader("Vary", "Origin");
-        }
-    } catch {
-        /!* ignore *!/
-    }
-
-    res.status(status).json(payload);
-});
-
-/!* ------------------------------------
- * Start + Graceful shutdown
- * ------------------------------------ *!/
-const server = app.listen(PORT, () => {
-    logger.info(
-        {
-            port: PORT,
-            sendMode: OTP_SEND_MODE,
-            ttl: OTP_TTL,
-            allowlist: expandedAllowlist,
-            nodeEnv: process.env.NODE_ENV,
-            logLevel: LOG_LEVEL,
-        },
-        "✅ OTP API listening"
-    );
-});
-
-function shutdown(signal: string) {
-    logger.warn({signal}, "🛑 Shutting down...");
-    server.close(async () => {
-        try {
-            await redis.quit();
-        } catch (e) {
-            logger.warn({err: e}, "Redis quit failed");
-        }
-        logger.info("👋 Bye.");
-        process.exit(0);
-    });
-}
-
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-process.on("SIGINT", () => shutdown("SIGINT"));
 
 process.on("unhandledRejection", (reason: any) => {
-    logger.error({err: reason}, "Unhandled promise rejection");
+    log("error", "process:unhandledRejection", { err: reason?.message || String(reason) });
 });
 process.on("uncaughtException", (err) => {
-    logger.error({err}, "Uncaught exception");
-    if (process.env.NODE_ENV === "production") process.exit(1);
-});*/
+    log("error", "process:uncaughtException", { err: err?.message });
+});
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+async function shutdown(signal: string) {
+    log("warn", "server:shutdown:start", { signal });
+    server.close(async () => {
+        try {
+            await pool.end();
+            log("warn", "server:shutdown:done");
+            process.exit(0);
+        } catch (e: any) {
+            log("error", "server:shutdown:error", { err: e?.message });
+            process.exit(1);
+        }
+    });
+}

@@ -18,7 +18,7 @@ export const DiscountCodeModal: FC<DiscountCodeModalProps> = ({
                                                                   onClose,
                                                                   code = "",
                                                                   onContinue,
-                                                                  logoSrc = "/okala_logo.png",
+                                                                  logoSrc = "/okala_logo.webp",
                                                                   accentTopColor = "#E22533",
                                                                   title = "کد تخفیف",
                                                                   description = "با وارد کردن این کد از تخفیف ویژه بهره‌مند شوید.",

@@ -5,14 +5,14 @@ import {type IconProps} from "../../types";
 
 export const HeaderLogo: FC<IconProps> = () => (
     <img
-        src="/dove_header_logo.png"
+        src="/dove_header_logo.webp"
         alt="Dove Logo"
         className="h-8 w-auto"
     />
 );
 export const CopyLogo: FC<IconProps> = () => (
     <img
-        src="/copy.png"
+        src="/copy.webp"
         alt="copy Logo"
         className="h-4 w-4"
     />

@@ -13,15 +13,14 @@ const westernDigits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 function toPersianDigits(input: string | number): string {
     return String(input).replace(/[0-9]/g, (d) => persianDigits[Number(d)]);
 }
-
 function toWesternDigits(input: string): string {
     return input.replace(/[۰-۹]/g, (d) => westernDigits[persianDigits.indexOf(d)]);
 }
-
 const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
 // --- API helpers ---
 const API_BASE = "https://dove-backend.liara.run";
+const SERVER_OTP_TTL = 180; // seconds (matches backend default)
 
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
     const res = await fetch(`${API_BASE}${path}`, {
@@ -40,6 +39,16 @@ async function postJSON<T>(path: string, body: unknown): Promise<T> {
         throw new Error(msg);
     }
     return data as T;
+}
+
+/** Convert local IR mobile like 0912... to E.164 +98912... (backend expects +?\d{8,15}) */
+function toE164Iran(local: string): string {
+    const w = toWesternDigits(local).replace(/\D/g, "");
+    if (w.startsWith("+")) return w;
+    if (w.startsWith("0")) return `+98${w.slice(1)}`;
+    if (w.startsWith("98")) return `+${w}`;
+    // last resort, assume Iranian number without leading 0
+    return `+98${w}`;
 }
 
 /* ------------------------------ subcomponents ------------------------------ */
@@ -75,26 +84,24 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
     const [step, setStep] = useState<1 | 2>(1);
     const [termsAccepted, setTermsAccepted] = useState(false);
 
-    const [showTerms, setShowTerms] = useState(false); // 👈 new state
+    const [showTerms, setShowTerms] = useState(false);
 
     const [fullName, setFullName] = useState("");
-    const [phone, setPhone] = useState(""); // stored as western digits
-    const [otp, setOtp] = useState(""); // stored as western digits
+    const [phone, setPhone] = useState(""); // stored as western digits "09..."
+    const [otp, setOtp] = useState(""); // western digits
 
-    const [timer, setTimer] = useState(0); // idle until server sends OTP
+    const [timer, setTimer] = useState(0);
     const [submitting, setSubmitting] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [showQuestions, setShowQuestions] = useState(false);
 
-    // derived visibility: hide/dismiss signup while questions are open
     const modalVisible = isOpen && !showQuestions;
 
     const step1FirstInputRef = useRef<HTMLInputElement | null>(null);
     const step2FirstInputRef = useRef<HTMLInputElement | null>(null);
-    // IMPORTANT: use number|null in browser (Vite/DOM) and window.clearInterval
     const intervalRef = useRef<number | null>(null);
 
-    // open/close lifecycle — keep coupled to isOpen
+    // open/close lifecycle
     useEffect(() => {
         if (!isOpen) return;
         setStep(1);
@@ -115,20 +122,18 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
         };
     }, [isOpen]);
 
-    // focus per step — only when the signup modal is visible
+    // focus per step
     useEffect(() => {
         if (!modalVisible) return;
         if (step === 1) step1FirstInputRef.current?.focus();
         else step2FirstInputRef.current?.focus();
     }, [modalVisible, step]);
 
-    // countdown timer — only tick while signup modal is visible AND on step 2
+    // countdown timer
     useEffect(() => {
         if (!modalVisible || step !== 2) return;
         if (intervalRef.current !== null) window.clearInterval(intervalRef.current);
-        intervalRef.current = window.setInterval(() => {
-            setTimer((t) => (t > 0 ? t - 1 : 0));
-        }, 1000);
+        intervalRef.current = window.setInterval(() => setTimer((t) => (t > 0 ? t - 1 : 0)), 1000);
         return () => {
             if (intervalRef.current !== null) {
                 window.clearInterval(intervalRef.current);
@@ -137,7 +142,7 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
         };
     }, [modalVisible, step]);
 
-    // close on ESC — only when signup modal is visible
+    // close on ESC
     useEffect(() => {
         if (!modalVisible) return;
         const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -148,44 +153,45 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
     /* ------------------------------ handlers ------------------------------ */
 
     // Send OTP via server
-    const handleInfoSubmit = (e?: FormEvent<HTMLFormElement>) => {
+    const handleInfoSubmit = async (e?: FormEvent<HTMLFormElement>) => {
         if (e) e.preventDefault();
         if (!IR_MOBILE.test(phone) || !fullName) return;
 
         setSubmitting(true);
         setErrorMsg(null);
-        setStep(2);
-        setTimer(120); // start from server TTL
-        setSubmitting(false);
-        /*postJSON<{ ok: true; ttl: number }>("/api/otp/send", {phone, fullName})
-            .then(({ttl}) => {
-                setStep(2);
-                setTimer(Number.isFinite(ttl) ? ttl : 120); // start from server TTL
-            })
-            .catch((err: Error) => {
-                setErrorMsg(err.message);
-            })
-            .finally(() => setSubmitting(false));*/
+        try {
+            const apiPhone = toE164Iran(phone);
+            // Backend currently returns { ok: true }. If you later add TTL to response, read it here.
+            await postJSON<{ ok: true }>(`/api/otp/send`, {phone: apiPhone, fullName});
+            setStep(2);
+            setTimer(SERVER_OTP_TTL);
+        } catch (err: any) {
+            setErrorMsg(err?.message || "خطای ناشناخته");
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     // Verify OTP via server
-    const handleOtpSubmit = (e: FormEvent<HTMLFormElement>) => {
+    const handleOtpSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (otp.length !== 4) return;
 
         setSubmitting(true);
         setErrorMsg(null);
-        setShowQuestions(true);
-        setSubmitting(false)
-        /*postJSON<{ ok: true }>("/api/otp/verify", {phone, code: otp})
-            .then(() => {
-                // ✅ open Questions and implicitly dismiss/hide the signup modal
-                setShowQuestions(true);
-            })
-            .catch((err: Error) => {
-                setErrorMsg(err.message);
-            })
-            .finally(() => setSubmitting(false));*/
+        try {
+            const apiPhone = toE164Iran(phone);
+            await postJSON<{ ok: true; user?: { phone: string; full_name: string | null } }>(
+                `/api/otp/verify`,
+                {phone: apiPhone, code: otp}
+            );
+            // ✅ Success → open Questions and implicitly hide signup modal
+            setShowQuestions(true);
+        } catch (err: any) {
+            setErrorMsg(err?.message || "خطای ناشناخته");
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     // Persian-digit controlled inputs
@@ -291,8 +297,7 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                                             className="text-blue-600 hover:underline"
                                         >
                                             قوانین و شرایط
-                                        </button>
-                                        {" "}
+                                        </button>{" "}
                                         را مطالعه کردم و با آن موافقم.
                                     </label>
                                 </div>
@@ -305,9 +310,7 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                                     {submitting ? "در حال ارسال…" : "ارسال"}
                                 </button>
 
-                                {errorMsg && (
-                                    <p className="mt-2 text-xs md:text-sm text-red-600 text-center">{errorMsg}</p>
-                                )}
+                                {errorMsg && <p className="mt-2 text-xs md:text-sm text-red-600 text-center">{errorMsg}</p>}
                             </form>
                         </div>
                     ) : (
@@ -365,9 +368,7 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                                     </button>
                                 </div>
 
-                                {errorMsg && (
-                                    <p className="mt-2 text-xs md:text-sm text-red-600 text-center">{errorMsg}</p>
-                                )}
+                                {errorMsg && <p className="mt-2 text-xs md:text-sm text-red-600 text-center">{errorMsg}</p>}
                             </form>
                         </div>
                     )}
@@ -390,21 +391,22 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                     onClose={() => setShowTerms(false)}
                     content={`قوانین و مقررات قرعه کشی محصولات داو
 با شرکت در قرعه کشی محصولات داو، شما با تمامی شرایط و قوانین زیر موافقت می‌نمایید.
-۱. شرایط کلی
-۱.۱. این قرعه کشی به صورت آنلاین برگزار می‌شود و شرکت در آن برای عموم آزاد است.
-1.۲. قرعه‌کشی در پایان کمپین  انجام می‌شود.
-۱.۳. در انتها  تعداد 8 برنده از میان شرکت‌کنندگان، به قید قرعه، انتخاب خواهند شد که هر یک پک کامل محصولات داو  و یک اتو مو فلیپس دریافت خواهند کرد.
 
-۲. نحوه شرکت در قرعه کشی
-۲.۱. برای شرکت در جشنواره، کافی است بعد از احراز هویت وارد بخش پاسخ به سوالات شوید.
-۲.۲. صرفاً صاحب خط تلفن همراهی که کد تایید را دریافت و  ارسال می‌کند، به عنوان برنده شناخته خواهد شد.
-۲.۳. هر شماره تلفن همراه فقط یک‌بار قابلیت شرکت در قرعه‌کشی را دارد.
-۲.۴. شانس شرکت در جشنواره برای هر شخص بر اساس تعداد شماره تلفن همراهی است که کدتایید دریافت و ارسال کرده است.
+۱. شرایط کلی  
+۱.۱. این قرعه کشی به صورت آنلاین برگزار می‌شود و شرکت در آن برای عموم آزاد است.  
+۱.۲. قرعه‌کشی در پایان کمپین انجام می‌شود.  
+۱.۳. در انتها تعداد 8 برنده از میان شرکت‌کنندگان، به قید قرعه، انتخاب خواهند شد که هر یک پک کامل محصولات داو و یک اتو مو فلیپس دریافت خواهند کرد.
 
-۳. شرایط احراز هویت و دریافت هدایا
-۳.۱. برندگان موظفند برای دریافت جایزه، مدارک شناسایی معتبر (شامل کارت ملی و سند مالکیت خط) را ارائه نمایند.
-۳.۲. جایزه فقط به خود شخص برنده (صاحب خط ارسال کننده کد که مدارک هویتی معتبر ارائه داده است) تحویل خواهد شد.
-۳.۳. نتایج جشنواره  از طریق رسانه‌های رسمی برند داو اطلاع‌رسانی خواهد شد.`}
+۲. نحوه شرکت در قرعه کشی  
+۲.۱. برای شرکت در جشنواره، کافی است بعد از احراز هویت وارد بخش پاسخ به سوالات شوید.  
+۲.۲. صرفاً صاحب خط تلفن همراهی که کد تایید را دریافت و ارسال می‌کند، به عنوان برنده شناخته خواهد شد.  
+۲.۳. هر شماره تلفن همراه فقط یک‌بار قابلیت شرکت در قرعه‌کشی را دارد.  
+۲.۴. شانس شرکت در جشنواره برای هر شخص بر اساس تعداد شماره تلفن همراهی است که کد تایید دریافت و ارسال کرده است.
+
+۳. شرایط احراز هویت و دریافت هدایا  
+۳.۱. برندگان موظفند برای دریافت جایزه، مدارک شناسایی معتبر (شامل کارت ملی و سند مالکیت خط) را ارائه نمایند.  
+۳.۲. جایزه فقط به خود شخص برنده (صاحب خط ارسال کننده کد که مدارک هویتی معتبر ارائه داده است) تحویل خواهد شد.  
+۳.۳. نتایج جشنواره از طریق رسانه‌های رسمی برند داو اطلاع‌رسانی خواهد شد.`}
                 />
             )}
         </>

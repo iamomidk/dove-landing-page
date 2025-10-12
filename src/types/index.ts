@@ -24,7 +24,7 @@ export interface SignUpModalProps {
     onClose: () => void;
 }
 
-export type RetailerId = "okala" | "snapp" | "digikala";
+export type RetailerId = "okala" | "snapp";
 
 export type RetailerLinkProps = {
     imgSrc: string;

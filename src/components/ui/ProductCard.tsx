@@ -81,9 +81,14 @@ export const ProductCard: FC<ProductCardProps> = ({product}) => {
                     </h3>
                 </div>
                 <div className="card-tags">
-                    <h3 className="card-sub-title font-semibold" title={product.description}>
-                        {product.description}
-                    </h3>
+                    <ul className="list-disc pr-4 text-[#001F5F] space-y-1 text-[14px]">
+                        {product.description
+                            .split("\n")
+                            .filter(Boolean)
+                            .map((line, i) => (
+                                <li key={i}>{line.trim()}</li>
+                            ))}
+                    </ul>
                 </div>
             </div>
         </article>
