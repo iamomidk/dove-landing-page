@@ -1,6 +1,5 @@
-import {type Product} from "../types";  // Using path alias '@/' for 'src/'
-
-export const products: Product[] = [
+import {} from "../types"; // Using path alias '@/' for 'src/'
+export const products = [
     {
         imgSrc: "/intensive_repair.webp",
         title: "شامپو و نرم کننده داو مناسب ترمیم موهای آسیب‌دیده (INTENSIVE REPAIR)",

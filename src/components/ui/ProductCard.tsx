@@ -1,12 +1,30 @@
 import {type FC, useEffect, useId, useState} from "react";
 import type {ProductCardProps} from "../../types";
 
+const sendGAEvent = (action: string, label: string) => {
+    if (typeof window.gtag === "function") {
+        window.gtag("event", action, {
+            event_category: "Product Card",
+            event_label: label,
+        });
+    }
+};
+
 export const ProductCard: FC<ProductCardProps> = ({product}) => {
     const [isActive, setIsActive] = useState(false);
     const overlayId = useId();
 
-    const toggleOverlay = () => setIsActive((v) => !v);
-    const closeOverlay = () => setIsActive(false);
+    const toggleOverlay = () => {
+        setIsActive((v) => !v);
+        sendGAEvent(!isActive ? "open_overlay" : "close_overlay", product.title);
+    };
+
+    const closeOverlay = () => {
+        if (isActive) {
+            setIsActive(false);
+            sendGAEvent("close_overlay", product.title);
+        }
+    };
 
     // Close on ESC for a11y
     useEffect(() => {
@@ -24,7 +42,6 @@ export const ProductCard: FC<ProductCardProps> = ({product}) => {
             onMouseLeave={closeOverlay}
             aria-labelledby={`${overlayId}-title`}
         >
-            {/* Image + toggle button */}
             <div className="card-item--image">
                 <div className="cmp-image">
                     <picture>
@@ -34,11 +51,11 @@ export const ProductCard: FC<ProductCardProps> = ({product}) => {
                             className="cmp-image__image"
                             alt={product.title}
                             loading="lazy"
+                            onClick={() => sendGAEvent("click_image", product.title)}
                         />
                     </picture>
                 </div>
 
-                {/* Use a real button to toggle overlay */}
                 <button
                     type="button"
                     onClick={toggleOverlay}
@@ -46,34 +63,30 @@ export const ProductCard: FC<ProductCardProps> = ({product}) => {
                     aria-expanded={isActive}
                     aria-controls={overlayId}
                     aria-label={isActive ? "بستن جزئیات محصول" : "نمایش جزئیات محصول"}
-                    // This button sits over the image to capture taps/clicks; keep it visually invisible.
                     style={{background: "transparent"}}
                 />
 
-                {/* Overlay (clickable only when active) */}
                 <div
                     id={overlayId}
                     className="card-overlay"
-                    // enable pointer interactions only when active, otherwise preserve original behavior
                     style={{pointerEvents: isActive ? "auto" : "none"}}
                     aria-hidden={!isActive}
                 >
                     <div className="overlay-content">
                         <h3
                             id={`${overlayId}-title`}
-                            className="overlay-title"
+                            className="overlay-title text-lg font-bold"
                             style={{color: product.hoverTextColor}}
                         >
                             {product.hoverTitle}
                         </h3>
-                        <p className="overlay-desc" style={{color: "#797776"}}>
+                        <p className="overlay-desc text-base font-semibold" style={{color: "#797776"}}>
                             {product.hoverDesc}
                         </p>
                     </div>
                 </div>
             </div>
 
-            {/* Card details */}
             <div className="card-item--details">
                 <div className="title">
                     <h3 className="card-title font-bold" title={product.title}>

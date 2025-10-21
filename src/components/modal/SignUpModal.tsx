@@ -3,6 +3,17 @@ import {type SignUpModalProps} from "../../types";
 import {QuestionsDialog} from "./QuestionsDialog";
 import TermsDialog from "./TermsDialog";
 
+declare global {
+    interface Window {
+        gtag?: (...args: any[]) => void;
+    }
+}
+
+const logEvent = (action: string, params?: Record<string, any>) => {
+    if (typeof window !== "undefined" && window.gtag) {
+        window.gtag("event", action, params);
+    }
+};
 /* ------------------------------- helpers ------------------------------- */
 
 const IR_MOBILE = /^0?9\d{9}$/; // e.g., 09123456789
@@ -13,9 +24,11 @@ const westernDigits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 function toPersianDigits(input: string | number): string {
     return String(input).replace(/[0-9]/g, (d) => persianDigits[Number(d)]);
 }
+
 function toWesternDigits(input: string): string {
     return input.replace(/[۰-۹]/g, (d) => westernDigits[persianDigits.indexOf(d)]);
 }
+
 const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
 // --- API helpers ---
@@ -101,6 +114,14 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
     const step2FirstInputRef = useRef<HTMLInputElement | null>(null);
     const intervalRef = useRef<number | null>(null);
 
+    useEffect(() => {
+        if (isOpen) {
+            logEvent("signup_modal_opened");
+        } else {
+            logEvent("signup_modal_closed");
+        }
+    }, [isOpen]);
+
     // open/close lifecycle
     useEffect(() => {
         if (!isOpen) return;
@@ -150,6 +171,14 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
         return () => window.removeEventListener("keydown", onKey);
     }, [modalVisible, onClose]);
 
+    useEffect(() => {
+        if (showTerms) logEvent("terms_opened");
+    }, [showTerms]);
+
+    useEffect(() => {
+        if (showQuestions) logEvent("questions_dialog_opened");
+    }, [showQuestions]);
+
     /* ------------------------------ handlers ------------------------------ */
 
     // Send OTP via server
@@ -157,15 +186,18 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
         if (e) e.preventDefault();
         if (!IR_MOBILE.test(phone) || !fullName) return;
 
+        logEvent("signup_info_submitted", {full_name: fullName, phone});
+
         setSubmitting(true);
         setErrorMsg(null);
         try {
             const apiPhone = toE164Iran(phone);
-            // Backend currently returns { ok: true }. If you later add TTL to response, read it here.
             await postJSON<{ ok: true }>(`/api/otp/send`, {phone: apiPhone, fullName});
+            logEvent("otp_sent", {phone});
             setStep(2);
             setTimer(SERVER_OTP_TTL);
         } catch (err: any) {
+            logEvent("signup_error", {stage: "otp_send", message: err?.message});
             setErrorMsg(err?.message || "خطای ناشناخته");
         } finally {
             setSubmitting(false);
@@ -177,6 +209,8 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
         e.preventDefault();
         if (otp.length !== 4) return;
 
+        logEvent("otp_submitted", {phone});
+
         setSubmitting(true);
         setErrorMsg(null);
         try {
@@ -185,9 +219,10 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                 `/api/otp/verify`,
                 {phone: apiPhone, code: otp}
             );
-            // ✅ Success → open Questions and implicitly hide signup modal
+            logEvent("otp_verified_success", {phone});
             setShowQuestions(true);
         } catch (err: any) {
+            logEvent("otp_verified_failed", {phone, message: err?.message});
             setErrorMsg(err?.message || "خطای ناشناخته");
         } finally {
             setSubmitting(false);
@@ -243,7 +278,7 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                         <div className="flex-1 px-6 py-6 md:px-10 md:py-8">
                             <ModalHeader
                                 onBack={onClose}
-                                title="آشنایی"
+                                title="مشخصات"
                                 subtitle="لطفا شماره موبایل و نام و نام خانوادگی خود را وارد کنید."
                                 titleId={titleId}
                                 subtitleId={subtitleId}
@@ -297,7 +332,8 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                                             className="text-blue-600 hover:underline"
                                         >
                                             قوانین و شرایط
-                                        </button>{" "}
+                                        </button>
+                                        {" "}
                                         را مطالعه کردم و با آن موافقم.
                                     </label>
                                 </div>
@@ -310,14 +346,15 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                                     {submitting ? "در حال ارسال…" : "ارسال"}
                                 </button>
 
-                                {errorMsg && <p className="mt-2 text-xs md:text-sm text-red-600 text-center">{errorMsg}</p>}
+                                {errorMsg &&
+                                    <p className="mt-2 text-xs md:text-sm text-red-600 text-center">{errorMsg}</p>}
                             </form>
                         </div>
                     ) : (
                         <div className="flex-1 px-6 py-6 md:px-10 md:py-8">
                             <ModalHeader
                                 onBack={() => setStep(1)}
-                                title="تثبیت"
+                                title="تکمیل فرایند"
                                 subtitle={`کد تایید برای ${toPersianDigits(phone)} ارسال شد.`}
                                 titleId={titleId}
                                 subtitleId={subtitleId}
@@ -368,7 +405,8 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                                     </button>
                                 </div>
 
-                                {errorMsg && <p className="mt-2 text-xs md:text-sm text-red-600 text-center">{errorMsg}</p>}
+                                {errorMsg &&
+                                    <p className="mt-2 text-xs md:text-sm text-red-600 text-center">{errorMsg}</p>}
                             </form>
                         </div>
                     )}
@@ -389,24 +427,7 @@ const SignUpModal: FC<SignUpModalProps> = ({isOpen, onClose}) => {
                 <TermsDialog
                     isOpen={showTerms}
                     onClose={() => setShowTerms(false)}
-                    content={`قوانین و مقررات قرعه کشی محصولات داو
-با شرکت در قرعه کشی محصولات داو، شما با تمامی شرایط و قوانین زیر موافقت می‌نمایید.
-
-۱. شرایط کلی  
-۱.۱. این قرعه کشی به صورت آنلاین برگزار می‌شود و شرکت در آن برای عموم آزاد است.  
-۱.۲. قرعه‌کشی در پایان کمپین انجام می‌شود.  
-۱.۳. در انتها تعداد 8 برنده از میان شرکت‌کنندگان، به قید قرعه، انتخاب خواهند شد که هر یک پک کامل محصولات داو و یک اتو مو فلیپس دریافت خواهند کرد.
-
-۲. نحوه شرکت در قرعه کشی  
-۲.۱. برای شرکت در جشنواره، کافی است بعد از احراز هویت وارد بخش پاسخ به سوالات شوید.  
-۲.۲. صرفاً صاحب خط تلفن همراهی که کد تایید را دریافت و ارسال می‌کند، به عنوان برنده شناخته خواهد شد.  
-۲.۳. هر شماره تلفن همراه فقط یک‌بار قابلیت شرکت در قرعه‌کشی را دارد.  
-۲.۴. شانس شرکت در جشنواره برای هر شخص بر اساس تعداد شماره تلفن همراهی است که کد تایید دریافت و ارسال کرده است.
-
-۳. شرایط احراز هویت و دریافت هدایا  
-۳.۱. برندگان موظفند برای دریافت جایزه، مدارک شناسایی معتبر (شامل کارت ملی و سند مالکیت خط) را ارائه نمایند.  
-۳.۲. جایزه فقط به خود شخص برنده (صاحب خط ارسال کننده کد که مدارک هویتی معتبر ارائه داده است) تحویل خواهد شد.  
-۳.۳. نتایج جشنواره از طریق رسانه‌های رسمی برند داو اطلاع‌رسانی خواهد شد.`}
+                    content={``}
                 />
             )}
         </>

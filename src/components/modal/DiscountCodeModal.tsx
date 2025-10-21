@@ -1,6 +1,12 @@
 import {useEffect, useRef, useState, type FC} from "react";
 import {CopyLogo} from "../ui/Icons";
 
+declare global {
+    interface Window {
+        gtag?: (...args: any[]) => void;
+    }
+}
+
 type DiscountCodeModalProps = {
     isOpen: boolean;
     onClose: () => void;
@@ -31,6 +37,25 @@ export const DiscountCodeModal: FC<DiscountCodeModalProps> = ({
     const cardRef = useRef<HTMLDivElement | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
 
+    const trackEvent = (action: string, params: Record<string, any> = {}) => {
+        if (typeof window !== "undefined" && typeof window.gtag === "function") {
+            window.gtag("event", action, params);
+        }
+    };
+
+    /* Track open/close */
+    useEffect(() => {
+        if (isOpen) {
+            trackEvent("discount_modal_open", {
+                code,
+                title,
+                logoSrc,
+            });
+        } else {
+            trackEvent("discount_modal_close");
+        }
+    }, [isOpen, code, title, logoSrc]);
+
     /* lock scroll */
     useEffect(() => {
         if (!isOpen) return;
@@ -44,7 +69,12 @@ export const DiscountCodeModal: FC<DiscountCodeModalProps> = ({
     /* esc to close */
     useEffect(() => {
         if (!isOpen) return;
-        const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                trackEvent("discount_modal_close_esc");
+                onClose();
+            }
+        };
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
     }, [isOpen, onClose]);
@@ -91,6 +121,7 @@ export const DiscountCodeModal: FC<DiscountCodeModalProps> = ({
         try {
             await navigator.clipboard.writeText(value);
             setCopied(true);
+            trackEvent("discount_code_copied", {code: value});
             setTimeout(() => setCopied(false), 1500);
         } catch {
             /* noop */
@@ -98,9 +129,15 @@ export const DiscountCodeModal: FC<DiscountCodeModalProps> = ({
     };
 
     const handleContinue = () => {
+        trackEvent("discount_continue_clicked", {
+            code: value,
+            url: continueUrl,
+        });
+
         if (continueUrl) {
             window.open(continueUrl, "_blank", "noopener,noreferrer");
         }
+
         onContinue?.(value);
     };
 
@@ -114,25 +151,31 @@ export const DiscountCodeModal: FC<DiscountCodeModalProps> = ({
             aria-modal="true"
             aria-label={title}
             dir="rtl"
-            onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+            onMouseDown={(e) => {
+                if (e.target === e.currentTarget) {
+                    trackEvent("discount_modal_close_backdrop");
+                    onClose();
+                }
+            }}
         >
             <div
                 ref={cardRef}
-                className="bg-white w-full max-w-md md:max-w-lg lg:max-w-xl mx-auto shadow-2xl overflow-hidden rounded-lg"
+                className="bg-white w-full max-w-md md:max-w-lg lg:max-w-xl mx-auto shadow-2xl overflow-hidden "
                 onMouseDown={(e) => e.stopPropagation()}
             >
                 {/* header */}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-                    {/* logo (left) */}
                     <img
                         src={logoSrc}
                         alt="لوگو فروشگاه"
                         className="h-8 sm:h-10 md:h-12 select-none pointer-events-none"
                     />
 
-                    {/* close (right) */}
                     <button
-                        onClick={onClose}
+                        onClick={() => {
+                            trackEvent("discount_modal_close_button");
+                            onClose();
+                        }}
                         aria-label="بستن"
                         className="text-gray-400 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-400"
                     >
@@ -158,7 +201,6 @@ export const DiscountCodeModal: FC<DiscountCodeModalProps> = ({
                         {description}
                     </p>
 
-                    {/* input + copy */}
                     <div className="flex w-full mb-3">
                         <button
                             onClick={handleCopy}
@@ -192,7 +234,6 @@ export const DiscountCodeModal: FC<DiscountCodeModalProps> = ({
                     </button>
                 </div>
 
-                {/* bottom accent */}
                 <div className="h-1 w-full" style={{backgroundColor: accentTopColor}}/>
             </div>
         </div>

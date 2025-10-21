@@ -1,16 +1,28 @@
 import {useState, type FC} from "react";
 import {MenuIcon, CloseIcon, HeaderLogo} from "../ui/Icons";
-
-const NAV_ITEMS = [
-    {label: "خانه", action: () => scrollToSection("home-section")},
-    {label: "معرفی داو", action: () => scrollToSection("intro-section")},
-    {label: "پشتیبانی", href: "/"},
-];
+import {trackEvent} from "../../analytics";
 
 const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({behavior: "smooth"});
 };
+
+const NAV_ITEMS = [
+    {
+        label: "خانه",
+        action: () => {
+            scrollToSection("home-section");
+            trackEvent("click_nav_home", "Navigation", "خانه");
+        },
+    },
+    {
+        label: "معرفی داو",
+        action: () => {
+            scrollToSection("intro-section");
+            trackEvent("click_nav_intro", "Navigation", "معرفی داو");
+        },
+    },
+];
 
 export const Header: FC = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -25,33 +37,28 @@ export const Header: FC = () => {
 
                 {/* Desktop Nav */}
                 <nav className="hidden md:flex items-center gap-8 py-2">
-                    {NAV_ITEMS.map((item, idx) =>
-                        item.href ? (
-                            <a
-                                key={idx}
-                                href={item.href}
-                                target={item.href.startsWith("http") ? "_blank" : "_self"}
-                                rel="noopener noreferrer"
-                                className="flex items-center text-2xl font-medium text-[#DAA156] hover:text-brand-blue transition-colors"
-                            >
-                                <span className="px-2">{item.label}</span>
-                            </a>
-                        ) : (
-                            <button
-                                key={idx}
-                                onClick={item.action}
-                                className="flex items-center text-2xl font-medium text-[#DAA156] hover:text-brand-blue transition-colors"
-                            >
-                                <span className="px-2">{item.label}</span>
-                            </button>
-                        )
-                    )}
+                    {NAV_ITEMS.map((item, idx) => (
+                        <button
+                            key={idx}
+                            onClick={item.action}
+                            className="flex items-center text-2xl font-medium text-brand-blue hover:text-brand-blue transition-colors"
+                        >
+                            <span className="px-2">{item.label}</span>
+                        </button>
+                    ))}
                 </nav>
 
                 {/* Mobile Menu Button */}
                 <button
-                    className="md:hidden text-[#DAA156]"
-                    onClick={() => setIsMenuOpen((p) => !p)}
+                    className="md:hidden text-brand-blue"
+                    onClick={() => {
+                        setIsMenuOpen((p) => !p);
+                        trackEvent(
+                            isMenuOpen ? "close_mobile_menu" : "open_mobile_menu",
+                            "Navigation",
+                            "Mobile Menu"
+                        );
+                    }}
                     aria-label="Toggle Menu"
                 >
                     {isMenuOpen ? <CloseIcon/> : <MenuIcon/>}
@@ -61,31 +68,19 @@ export const Header: FC = () => {
             {/* Mobile Menu */}
             {isMenuOpen && (
                 <div className="md:hidden bg-white border-t border-gray-200 flex flex-col items-start gap-4 p-6">
-                    {NAV_ITEMS.map((item, idx) =>
-                        item.href ? (
-                            <a
-                                key={idx}
-                                href={item.href}
-                                target={item.href.startsWith("http") ? "_blank" : "_self"}
-                                rel="noopener noreferrer"
-                                className="flex items-center text-sm font-medium text-[#DAA156]"
-                                onClick={() => setIsMenuOpen(false)}
-                            >
-                                <span className="px-2">{item.label}</span>
-                            </a>
-                        ) : (
-                            <button
-                                key={idx}
-                                onClick={() => {
-                                    item.action?.();
-                                    setIsMenuOpen(false);
-                                }}
-                                className="flex items-center text-sm font-medium text-[#DAA156]"
-                            >
-                                <span className="px-2">{item.label}</span>
-                            </button>
-                        )
-                    )}
+                    {NAV_ITEMS.map((item, idx) => (
+                        <button
+                            key={idx}
+                            onClick={() => {
+                                item.action?.();
+                                setIsMenuOpen(false);
+                                trackEvent("click_mobile_nav", "Navigation", item.label);
+                            }}
+                            className="flex items-center text-sm font-medium text-brand-blue"
+                        >
+                            <span className="px-2">{item.label}</span>
+                        </button>
+                    ))}
                 </div>
             )}
         </header>

@@ -1,4 +1,5 @@
 import {useEffect, useMemo, useRef, useState, type FC} from "react";
+
 import {
     SHAMPOO_DATA,
     type ShampooDescription,
@@ -25,6 +26,12 @@ const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹
 function toPersianDigits(input: string | number): string {
     return String(input).replace(/[0-9]/g, (d) => persianDigits[Number(d)]);
 }
+
+const logEvent = (action: string, params?: Record<string, any>) => {
+    if (typeof window !== "undefined" && window.gtag) {
+        window.gtag("event", action, params);
+    }
+};
 
 function calculateShampoos(
     answers: Record<string, string>
@@ -56,8 +63,8 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
                 id: "color",
                 title: "موهات رنگ یا دکلره داره؟",
                 options: [
-                    {id: "yes", label: "آره"},
-                    {id: "no", label: "نه"},
+                    {id: "yes", label: "بله"},
+                    {id: "no", label: "خیر"},
                 ],
                 required: true,
             },
@@ -68,7 +75,7 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
                     {id: "intensive_repair", label: "ترمیم موهای آسیب دیده"},
                     {id: "hair_fall_rescue", label: "تقویت استحکام تار موها"},
                     {id: "daily_moisture", label: "حفظ رطوبت موها"},
-                    {id: "color_vibrancy", label: "حفظ شفافیت رنگ موها"},
+                    {id: "color_vibrancy", label: "حفظ شفافیت رنگ مو و جلوگیری از آسیب ناشی از رنگ"},
                     {id: "purifying", label: "تمیزی چربی کف سر و ساقه مو"},
                 ],
             },
@@ -76,9 +83,9 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
                 id: "hairType",
                 title: "حالت و نوع موهات رو انتخاب کن",
                 options: [
-                    {id: "purifying", label: "چرب و سبک"},
-                    {id: "intensive_repair", label: "خشک و وز"},
-                    {id: "hair_fall_rescue", label: "نازک و شکننده"},
+                    {id: "purifying", label: "چرب"},
+                    {id: "intensive_repair", label: "خشک و آسیب دیده"},
+                    {id: "hair_fall_rescue", label: "ضعیف و شکننده"},
                     {id: "daily_moisture", label: "معمولی"},
                 ],
             },
@@ -86,8 +93,8 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
                 id: "hairProblem",
                 title: "بزرگترین مشکلت با موهات چیه؟",
                 options: [
-                    {id: "intensive_repair", label: "وز و خشک بودن"},
-                    {id: "hair_fall_rescue", label: "ریزش و شکنندگی"},
+                    {id: "intensive_repair", label: "خشک بودن"},
+                    {id: "hair_fall_rescue", label: "شکننده بودن"},
                     {id: "purifying", label: "چرب شدن سریع"},
                     {id: "daily_moisture", label: "نیاز به حفظ رطوبت"},
                 ],
@@ -105,6 +112,12 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
 
     const dialogRootRef = useRef<HTMLDivElement | null>(null);
     const cardRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        if (isOpen) {
+            logEvent("quiz_open", {category: "questions_dialog"});
+        }
+    }, [isOpen]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -126,18 +139,47 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
     const currentValue = answers[current.id];
     const canNext = current.required ? Boolean(currentValue) : true;
 
-    const selectAnswer = (qid: string, oid: string) =>
+    const selectAnswer = (qid: string, oid: string) => {
         setAnswers((prev) => ({...prev, [qid]: oid}));
+        logEvent("answer_selected", {question_id: qid, option_id: oid});
+    };
 
     const goPrev = () => setStep((s) => Math.max(0, s - 1));
 
     const goNext = () => {
         if (!canNext) return;
-        if (current.id === "color" && currentValue === "yes") {
-            setStep(1);
-        } else if (current.id === "colorGoal" && answers["color"] === "yes") {
+        logEvent("next_clicked", {step, question_id: current.id});
+
+        // If user is answering the first question ("color")
+        if (current.id === "color") {
+            if (currentValue === "yes") {
+                // Go directly to colorGoal
+                setStep(data.findIndex(q => q.id === "colorGoal"));
+            } else {
+                // Skip colorGoal, go to hairType
+                setStep(data.findIndex(q => q.id === "hairType"));
+            }
+            return;
+        }
+
+        // If the user answered colorGoal (for yes flow)
+        if (current.id === "colorGoal" && answers["color"] === "yes") {
             finish();
-        } else if (step < data.length - 1) {
+            return;
+        }
+
+        // If the user is in the "no" flow, continue with hairType → hairProblem
+        if (answers["color"] === "no") {
+            if (current.id === "hairType") {
+                setStep(data.findIndex(q => q.id === "hairProblem"));
+            } else if (current.id === "hairProblem") {
+                finish();
+            }
+            return;
+        }
+
+        // Default next step (fallback)
+        if (step < data.length - 1) {
             setStep((s) => s + 1);
         }
     };
@@ -146,6 +188,7 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
         if (!canNext) return;
         const {main, combo} = calculateShampoos(answers);
         setResultKey({main, combo});
+        logEvent("quiz_completed", {main, combo});
         onSubmit?.(answers);
     };
 
@@ -219,8 +262,8 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
                                                 className="accent-[#003366]"
                                             />
                                             <span className="text-xl text-gray-800 mr-4">
-                        {opt.label}
-                      </span>
+                                                {opt.label}
+                                            </span>
                                         </label>
                                     );
                                 })}
@@ -228,7 +271,7 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
                         </>
                     ) : (
                         /* Result */
-                        <div className="text-center py-4 px-20">
+                        <div className="text-center py-4 px-2">
                             <div className="flex justify-end mb-4">
                                 <button
                                     onClick={onClose}
@@ -249,20 +292,36 @@ export const QuestionsDialog: FC<QuestionsDialogProps> = ({
                                 className="w-full h-64 md:h-80 object-contain mb-4"
                             />
 
-                            <h3 className="text-right font-bold py-4 md:py-8 text-[#797776] text-2xl">
+                            <h3 className="text-justify font-bold py-4 md:py-8 text-[#797776] text-lg">
+                                از همراهی شما سپاسگزاریم. با پاسخ به سوالات، وارد قرعه‌کشی داو شدید.
+                            </h3>
+                            <h3 className="text-right font-bold py-4 md:py-8 text-[#797776] text-lg">
                                 شامپوی مناسب موهای شما
                             </h3>
 
                             {getDescriptions().map((desc, i) => (
                                 <div
                                     key={i}
-                                    className="mb-8 text-justify px-4 border-r-2"
-                                    style={{borderColor: desc.color}}
+                                    className="mb-8 text-justify px-4"
                                 >
-                                    <h3 className="text-xl pb-1 font-bold" style={{color: desc.color}}>
+                                    <h3 className="text-lg pb-1 font-bold" style={{color: desc.color}}>
                                         {desc.title}
                                     </h3>
-                                    {desc.text && <p className="text-lg text-gray-700">{desc.text}</p>}
+                                    <ul className="list-disc text-base text-gray-700 list-inside">
+                                        {desc.text
+                                            .split("\n")
+                                            .filter(Boolean)
+                                            .map((line, i) => (
+                                                <li
+                                                    key={i}
+                                                    style={{
+                                                        listStyleType: "disc",
+                                                    }}
+                                                >
+                                                    {line.trim()}
+                                                </li>
+                                            ))}
+                                    </ul>
                                 </div>
                             ))}
                         </div>

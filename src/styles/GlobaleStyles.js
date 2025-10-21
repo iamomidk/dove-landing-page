@@ -1,7 +1,6 @@
-import {type FC} from "react";
-
-const GlobalStyles: FC = () => (
-    <style>{`
+import { jsx as _jsx } from "react/jsx-runtime";
+import {} from "react";
+const GlobalStyles = () => (_jsx("style", { children: `
     /* Google Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700;800&display=swap');
 
@@ -231,7 +230,5 @@ const GlobalStyles: FC = () => (
       animation: pulse-ring 1.8s cubic-bezier(0.66, 0, 0, 1) infinite;
       z-index: -1;
     }
-  `}</style>
-);
-
+  ` }));
 export default GlobalStyles;

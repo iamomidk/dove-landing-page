@@ -1,41 +1,4 @@
-export type ShampooDescription = {
-    title: string;
-    text: string;
-    color: string;
-};
-
-export type ShampooVariant = {
-    image: string;
-    descriptions: ShampooDescription[];
-};
-
-/**
- * All possible shampoo categories
- */
-export type ShampooCategory =
-    | "color_vibrancy"
-    | "daily_moisture"
-    | "hair_fall_rescue"
-    | "intensive_repair"
-    | "purifying";
-
-/**
- * Each category has variants (like default, daily_moisture, hair_fall_rescue, etc.)
- */
-export type ShampooVariants = {
-    [key in ShampooCategory]?: ShampooVariant;
-} & {
-    default: ShampooVariant;
-};
-
-/**
- * The entire shampoo dataset
- */
-export type ShampooData = {
-    [key in ShampooCategory]: ShampooVariants;
-};
-
-export const SHAMPOO_DATA: ShampooData = {
+export const SHAMPOO_DATA = {
     color_vibrancy: {
         default: {
             image: "color_vibrancy-T.webp",
@@ -108,7 +71,6 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
     },
-
     daily_moisture: {
         default: {
             image: "daily_moisture-T.webp",
@@ -166,7 +128,6 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
     },
-
     hair_fall_rescue: {
         default: {
             image: "hair_fall_rescue-T.webp",
@@ -224,7 +185,6 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
     },
-
     intensive_repair: {
         default: {
             image: "intensive_repair-T.webp",
@@ -282,7 +242,6 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
     },
-
     purifying: {
         default: {
             image: "purifying-T.webp",
@@ -340,4 +299,4 @@ export const SHAMPOO_DATA: ShampooData = {
             ],
         },
     },
-} as const;
+};
