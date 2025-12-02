@@ -15,7 +15,7 @@
     "@tailwindcss/vite": "^4.1.12",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
-    "express": "^5.1.0",
+    "express": "^5.2.1",
     "firebase": "^12.2.1",
     "helmet": "^8.1.0",
     "hls.js": "^1.6.13",
