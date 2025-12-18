@@ -49,9 +49,14 @@ export const CtaSection: FC<CtaSectionProps> = ({onOpenModal}) => {
                         });
                         onOpenModal();
                     }}
-                    className="brand-blue text-white font-bold py-3 px-12 mt-8 shadow-md hover:opacity-90 transition-opacity text-lg md:text-lg w-full md:w-auto"
+                    className="brand-blue font-bold py-3 px-12 mt-8 shadow-md hover:opacity-90 transition-opacity w-full md:w-auto"
                 >
-                    شامپو مناسب موهای تو
+                    <p className="text-white text-lg font-medium">
+                        شامپو مناسب موهای تو
+                    </p>
+                    <p className="text-white text-xs font-medium">
+                        (کلیک کنید)
+                    </p>
                 </button>
             </div>
         </section>
