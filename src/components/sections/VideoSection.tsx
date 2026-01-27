@@ -1,6 +1,6 @@
 import {type FC, useEffect, useRef, useState} from "react";
 
-const API_BASE = "https://dove-backend.liara.run";
+const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
 const SIGNED_DEFAULT_EXPIRES = 600; // seconds
 
 export const VideoSection: FC = () => {

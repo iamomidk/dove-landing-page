@@ -324,19 +324,24 @@ async function bootstrap() {
         log("info", `${tag}:sequences:sync`);
         await c.query(`
       DO $$
+      DECLARE
+        otps_max BIGINT;
+        otp_send_log_max BIGINT;
       BEGIN
         IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'otps_id_seq') THEN
           CREATE SEQUENCE otps_id_seq;
           RAISE NOTICE 'created sequence otps_id_seq';
         END IF;
-        PERFORM setval('otps_id_seq', COALESCE((SELECT MAX(id) FROM otps), 0), true);
+        SELECT MAX(id) INTO otps_max FROM otps;
+        PERFORM setval('otps_id_seq', COALESCE(NULLIF(otps_max, 0), 1), COALESCE(otps_max, 0) > 0);
         ALTER TABLE otps ALTER COLUMN id SET DEFAULT nextval('otps_id_seq');
 
         IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'otp_send_log_id_seq') THEN
           CREATE SEQUENCE otp_send_log_id_seq;
           RAISE NOTICE 'created sequence otp_send_log_id_seq';
         END IF;
-        PERFORM setval('otp_send_log_id_seq', COALESCE((SELECT MAX(id) FROM otp_send_log), 0), true);
+        SELECT MAX(id) INTO otp_send_log_max FROM otp_send_log;
+        PERFORM setval('otp_send_log_id_seq', COALESCE(NULLIF(otp_send_log_max, 0), 1), COALESCE(otp_send_log_max, 0) > 0);
         ALTER TABLE otp_send_log ALTER COLUMN id SET DEFAULT nextval('otp_send_log_id_seq');
       END
       $$;
@@ -515,7 +520,7 @@ app.get("/api/video-url/signed/:key", async (req: Request, res: Response) => {
     const reqId = (req as any).reqId as string;
     try {
         if (!S3_BUCKET) throw new Error("S3_BUCKET is not configured");
-        const key = decodeURIComponent(req.params.key);
+        const key = decodeURIComponent(String(req.params.key));
         const expires = Math.min(Number(req.query.expires ?? 600), 3600);
         const disposition = String(req.query.disposition ?? "inline");
         const filename = String(req.query.filename ?? key.split("/").pop() ?? "file");
@@ -545,7 +550,7 @@ app.get("/api/video-url/static/:file", async (req: Request, res: Response) => {
     const reqId = (req as any).reqId as string;
     try {
         if (!PUBLIC_VIDEO_BASE) throw new Error("PUBLIC_VIDEO_BASE is not set");
-        const file = encodeURIComponent(req.params.file);
+        const file = encodeURIComponent(String(req.params.file));
         const url = `${PUBLIC_VIDEO_BASE}/${file}`;
         log("info", "video:static:ok", { reqId, file });
         res.json({ ok: true, url });

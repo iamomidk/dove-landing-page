@@ -32,7 +32,7 @@ function toWesternDigits(input: string): string {
 const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
 // --- API helpers ---
-const API_BASE = "https://dove-backend.liara.run";
+const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
 const SERVER_OTP_TTL = 180; // seconds (matches backend default)
 
 async function postJSON<T>(path: string, body: unknown): Promise<T> {
